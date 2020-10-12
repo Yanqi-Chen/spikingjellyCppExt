@@ -32,5 +32,5 @@ torch::Tensor sigmoid_apply(const torch::Tensor & x, const double & alpha)
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("sigmoid_apply", sigmoid_apply);
+    m.def("sigmoid_apply", &sigmoid_apply);
 }
