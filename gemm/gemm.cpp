@@ -5,7 +5,7 @@
 #define CHECK_CONTIGUOUS(x) AT_ASSERTM(x.is_contiguous(), #x " must be contiguous")
 #define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
 
-void sparse_mm_dense_cusparse_backend(const int & m, const int & n, const int & p, float * dA, float * dB, float * dC);
+void sparse_mm_dense_cusparse_backend(const int & cuda_device_id, const int & m, const int & n, const int & p, float * dA, float * dB, float * dC);
 
 void sparse_mm_dense_cusparse(const torch::Tensor & A, const torch::Tensor & B, torch::Tensor & C)
 {   
@@ -18,11 +18,10 @@ void sparse_mm_dense_cusparse(const torch::Tensor & A, const torch::Tensor & B, 
     int m = A.size(0);
     int n = A.size(1);
     int p = B.size(1);
-
     float* dA = (float*)A.data_ptr<float>();
     float* dB = (float*)B.data_ptr<float>();
     float* dC = (float*)C.data_ptr<float>();
-    sparse_mm_dense_cusparse_backend(m, n, p, dA, dB, dC);
+    sparse_mm_dense_cusparse_backend(B.get_device(), m, n, p, dA, dB, dC);
 
 }
 

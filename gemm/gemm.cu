@@ -37,7 +37,7 @@ buffer.len = size;
 static reCuBuffer<int>   nnzPerCol_, ColInd_, RowPtr_;
 static reCuBuffer<float> csrVal_, tranBuffer_;
 
-void sparse_mm_dense_cusparse_backend(const int & m, const int & n, const int & p, float * dA, float * dB, float * dC)
+void sparse_mm_dense_cusparse_backend(const int & cuda_device_id, const int & m, const int & n, const int & p, float * dA, float * dB, float * dC)
 {   
     // CT = A * BT
     resize(tranBuffer_, m * p * sizeof(float));
