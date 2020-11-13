@@ -4,7 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/raid/fangw01/anaconda3/envs/pytorch-env/lib/python3.8/site-packages/torch/include"
+                "/home/wfang/anaconda3/envs/pytorch-env/lib/python3.8/site-packages/torch/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

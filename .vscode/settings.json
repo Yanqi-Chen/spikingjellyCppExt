@@ -4,7 +4,9 @@
         "array": "cpp",
         "string_view": "cpp",
         "initializer_list": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "string": "cpp",
+        "ostream": "cpp"
     },
-    "python.pythonPath": "/raid/fangw01/anaconda3/envs/pytorch-env/bin/python"
+    "python.pythonPath": "/home/wfang/anaconda3/envs/pytorch-env/bin/python"
 }
