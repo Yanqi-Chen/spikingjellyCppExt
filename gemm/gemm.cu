@@ -35,37 +35,47 @@ buffer.len = size;
 }
 }
 
-static reCuBuffer<int>   nnzPerCol_, ColInd_, RowPtr_;
-static reCuBuffer<float> csrVal_, tranBuffer_;
+#define num_device 16
+
+static reCuBuffer<int>   nnzPerCol_[num_device], ColInd_[num_device], RowPtr_[num_device];
+static reCuBuffer<float> csrVal_[num_device], tranBuffer_[num_device];
+
+struct cublasHandle_
+{
+cublasHandle_t handle_;
+bool init = false;
+};
+static cublasHandle_ handle2_[num_device];
 
 void sparse_mm_dense_cusparse_backend(const int & cuda_device_id, const int & m, const int & n, const int & p, float * dA, float * dB, float * dC)
-{   
+{
     assert(cuda_device_id>=0);
     cudaSetDevice(cuda_device_id);
-    // CT = A * BT
-    resize(tranBuffer_, m * p * sizeof(float));
+    reCuBuffer<int>& nnzPerCol    = nnzPerCol_[cuda_device_id];
+    reCuBuffer<int>& ColInd       = ColInd_[cuda_device_id];
+    reCuBuffer<int>& RowPtr       = RowPtr_[cuda_device_id];
+    reCuBuffer<float>& csrVal     = csrVal_[cuda_device_id];
+    reCuBuffer<float>& tranBuffer = tranBuffer_[cuda_device_id];
 
-    //view_cuda_tensor(A);
-    //view_cuda_tensor(B);
+    // CT = A * BT
+    resize(tranBuffer, m * p * sizeof(float));
 
     cusparseHandle_t  handle;
     CUSPARSE_CALL(cusparseCreate(&handle));
-    cublasHandle_t handle2;
-    cublasCreate(&handle2);
 
     // transform dense A to csr
     cusparseMatDescr_t descrX;
     CUSPARSE_CALL(cusparseCreateMatDescr(&descrX));
 
     int total_nnz;
-    resize(nnzPerCol_, m * sizeof(int));
+    resize(nnzPerCol, m * sizeof(int));
 
-    CUSPARSE_CALL(cusparseSnnz(handle, CUSPARSE_DIRECTION_COLUMN, n, m, descrX, dA, n, nnzPerCol_.data, &total_nnz));
-    resize(csrVal_, total_nnz * sizeof(float));
-    resize(ColInd_, total_nnz * sizeof(int));
-    resize(RowPtr_, (m+1) * sizeof(int));
+    CUSPARSE_CALL(cusparseSnnz(handle, CUSPARSE_DIRECTION_COLUMN, n, m, descrX, dA, n, nnzPerCol.data, &total_nnz));
+    resize(csrVal, total_nnz * sizeof(float));
+    resize(ColInd, total_nnz * sizeof(int));
+    resize(RowPtr, (m+1) * sizeof(int));
 
-    CUSPARSE_CALL(cusparseSdense2csc(handle, n, m, descrX, dA, n, nnzPerCol_.data, csrVal_.data, ColInd_.data, RowPtr_.data));
+    CUSPARSE_CALL(cusparseSdense2csc(handle, n, m, descrX, dA, n, nnzPerCol.data, csrVal.data, ColInd.data, RowPtr.data));
 
     // B * C
     cusparseMatDescr_t descrA;
@@ -76,14 +86,21 @@ void sparse_mm_dense_cusparse_backend(const int & cuda_device_id, const int & m,
     float alpha = 1.0f;
     float beta  = 0.0f;
     CUSPARSE_CALL(cusparseScsrmm2(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,CUSPARSE_OPERATION_TRANSPOSE,
-        n,p,m,total_nnz,&alpha,descrA,csrVal_.data,RowPtr_.data, ColInd_.data,dB,p,&beta,tranBuffer_.data,n));
+        n,p,m,total_nnz,&alpha,descrA,csrVal.data,RowPtr.data, ColInd.data,dB,p,&beta,tranBuffer.data,n));
+
+    // cublasDestroy will synchronize the device
+    cublasHandle_t& handle2 = handle2_[cuda_device_id].handle_;
+    if(!handle2_[cuda_device_id].init)
+    {
+        cublasCreate(&handle2);
+        handle2_[cuda_device_id].init = true;
+    }
 
     // C need TRANSPOSE
-    cublasSgeam(handle2, CUBLAS_OP_T, CUBLAS_OP_T, p, m, &alpha, tranBuffer_.data, m, &beta, tranBuffer_.data, m, dC, p);
-    //view_cuda_tensor(C);
+    cublasSgeam(handle2, CUBLAS_OP_T, CUBLAS_OP_T, p, m, &alpha, tranBuffer.data, m, &beta, tranBuffer.data, m, dC, p);
+    //cublasDestroy(handle2);
 
     CUSPARSE_CALL(cusparseDestroy(handle));
-    cublasDestroy(handle2);
     CUSPARSE_CALL(cusparseDestroyMatDescr(descrX));
     CUSPARSE_CALL(cusparseDestroyMatDescr(descrA));
 }
