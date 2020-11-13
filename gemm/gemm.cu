@@ -51,7 +51,7 @@ void sparse_mm_dense_cusparse_backend(const int & cuda_device_id, const int & m,
     cusparseHandle_t  handle;
     CUSPARSE_CALL(cusparseCreate(&handle));
     cublasHandle_t handle2;
-    CUDA_CALL(cublasCreate(&handle2));
+    cublasCreate(&handle2);
 
     // transform dense A to csr
     cusparseMatDescr_t descrX;
@@ -79,11 +79,11 @@ void sparse_mm_dense_cusparse_backend(const int & cuda_device_id, const int & m,
         n,p,m,total_nnz,&alpha,descrA,csrVal_.data,RowPtr_.data, ColInd_.data,dB,p,&beta,tranBuffer_.data,n));
 
     // C need TRANSPOSE
-    CUDA_CALL(cublasSgeam(handle2, CUBLAS_OP_T, CUBLAS_OP_T, p, m, &alpha, tranBuffer_.data, m, &beta, tranBuffer_.data, m, dC, p));
+    cublasSgeam(handle2, CUBLAS_OP_T, CUBLAS_OP_T, p, m, &alpha, tranBuffer_.data, m, &beta, tranBuffer_.data, m, dC, p);
     //view_cuda_tensor(C);
 
     CUSPARSE_CALL(cusparseDestroy(handle));
-    CUDA_CALL(cublasDestroy(handle2));
+    cublasDestroy(handle2);
     CUSPARSE_CALL(cusparseDestroyMatDescr(descrX));
     CUSPARSE_CALL(cusparseDestroyMatDescr(descrA));
 }
