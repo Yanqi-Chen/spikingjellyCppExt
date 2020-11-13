@@ -8,6 +8,7 @@
 #include <cusparse_v2.h>
 #include <cublas.h>
 #include <cublas_v2.h>
+#include <assert.h>
 using namespace std;
 
 #define ERR_NE(X,Y) do { if ((X) != (Y)) { \
@@ -39,6 +40,8 @@ static reCuBuffer<float> csrVal_, tranBuffer_;
 
 void sparse_mm_dense_cusparse_backend(const int & cuda_device_id, const int & m, const int & n, const int & p, float * dA, float * dB, float * dC)
 {   
+    assert(cuda_device_id>=0);
+    cudaSetDevice(cuda_device_id);
     // CT = A * BT
     resize(tranBuffer_, m * p * sizeof(float));
 

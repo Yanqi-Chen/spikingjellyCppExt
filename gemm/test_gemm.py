@@ -15,9 +15,9 @@ def cal_fun_t(n, f, *args, **kwargs):
     torch.cuda.synchronize()
     return (time.time() - t_start) / n
 
-device = 'cpu'
+device = 'cuda:3'
 # torch.cuda.set_device(device)
-mat_size = 2**11
+mat_size = 2**12
 sparsity = 0.99
 spike = (torch.rand([mat_size, mat_size]).to(device) > sparsity).float()
 x = torch.rand([mat_size, mat_size]).to(device)
