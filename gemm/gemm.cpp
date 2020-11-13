@@ -1,17 +1,14 @@
 #include <iostream>
 #include <torch/extension.h>
 
-#define CHECK_CUDA(x) AT_ASSERTM(x.type().is_cuda(), #x " must be a CUDA tensor")
-#define CHECK_CONTIGUOUS(x) AT_ASSERTM(x.is_contiguous(), #x " must be contiguous")
-#define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
-
 void sparse_mm_dense_cusparse_backend(const int & cuda_device_id, const int & m, const int & n, const int & p, float * dA, float * dB, float * dC);
 
 void sparse_mm_dense_cusparse(const torch::Tensor & A, const torch::Tensor & B, torch::Tensor & C)
 {   
     // A is sparse, B is dense
-    CHECK_CUDA(A);
-    CHECK_CUDA(B);
+    TORCH_CHECK(A.device().is_cuda(), "A must be a CUDA tensor");
+    TORCH_CHECK(B.device().is_cuda(), "B must be a CUDA tensor");
+    TORCH_CHECK(C.device().is_cuda(), "C must be a CUDA tensor");
     // A: [M, N] B:[N, P]
     // C: [M, P]
     // Mat size. In cuSparse, dense matrix is column-major format while sparse matrix is row-major.So we use csc instead of csr
