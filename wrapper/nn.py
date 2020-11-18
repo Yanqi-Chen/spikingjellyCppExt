@@ -24,7 +24,7 @@ class SparseLinear(nn.Module):
             nn.init.uniform_(self.bias, -bound, bound)
 
     def forward(self, sparse: torch.Tensor) -> torch.Tensor:
-        return wrapper.functional.sparse_mm_dense(sparse, self.weight)
+        return wrapper.functional.sparse_mm_dense(sparse, self.weight) + self.bias
 
     def extra_repr(self) -> str:
         return 'in_features={}, out_features={}, bias={}'.format(
