@@ -13,7 +13,14 @@ def cal_fun_t(n, f, *args, **kwargs):
     torch.cuda.synchronize()
     return (time.time() - t_start) / n
 
-cext_sigmoid = cpp_extension.load(name='sigmoid',
+cext_surrogate = cpp_extension.load(name='surrogate',
                           sources=['./surrogate.cpp'], verbose=True)
 
 device = 'cuda:0'
+x = torch.rand([8], device=device)
+alpha = torch.ones([1], device=device)
+x.requires_grad_(True)
+y = cext_surrogate.atan(x, alpha)
+print(y)
+y.sum().backward()
+print(x.grad)
