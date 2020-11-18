@@ -14,10 +14,10 @@ def cal_fun_t(n, f, *args, **kwargs):
     return (time.time() - t_start) / n
 
 cext_surrogate = cpp_extension.load(name='surrogate',
-                          sources=['./surrogate.cpp'], verbose=True)
+                          sources=['./surrogate.cpp', './surrogate.cu'], verbose=True)
 
-device = 'cuda:0'
-x = torch.rand([8], device=device)
+device = 'cuda:1'
+x = torch.rand([1024], device=device)
 alpha = torch.ones([1], device=device)
 x.requires_grad_(True)
 y = cext_surrogate.atan(x, alpha)
