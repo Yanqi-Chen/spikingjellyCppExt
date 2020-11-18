@@ -2,20 +2,13 @@ from torch.utils import cpp_extension
 import torch
 import time
 import numpy as np
+import wrapper
 
 cext = cpp_extension.load(name='sparse_mm_dense_cusparse',
                           sources=['./gemm.cpp', './gemm.cu'], verbose=True)
 
 
-def cal_fun_t(n, f, *args, **kwargs):
-    # warm up
-    f(*args, **kwargs)
-    torch.cuda.synchronize()
-    t_start = time.time()
-    for _ in range(n):
-        f(*args, **kwargs)
-    torch.cuda.synchronize()
-    return (time.time() - t_start) / n
+
 
 
 device = 'cuda:0'
@@ -43,14 +36,14 @@ for i in range(t_sparse.shape[0]):
             x = torch.rand([batch_size, in_features], device=device)
             w = torch.rand([in_features, out_features], device=device)
             y = torch.zeros([batch_size, out_features], device=device)
-            t2 = cal_fun_t(100, torch.mm, x, w)
+            t2 = wrapper.cal_fun_t(100, torch.mm, x, w)
             t_dense[i][j][k] = t2
             print(t2, end=' | ')
             for l in range(t_sparse.shape[3]):
                 sparsity = sparsity_list[l]
                 spike = (x > sparsity).float()
-                t1 = cal_fun_t(100, cext.sparse_mm_dense_cusparse, spike, w, y)
-                assert (spike.mm(w) - y).abs_().sum().item() < 1e-5  # 错误检查
+                t1 = wrapper.cal_fun_t(100, cext.sparse_mm_dense_cusparse, spike, w, y)
+                assert (spike.mm(w) - y).abs_().max().item() < 1e-5  # 错误检查
                 t_sparse[i][j][k][l] = t1
                 print(t1, end=' ')
 

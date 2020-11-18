@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import wrapper.functional
+import wrapper
 import math
 class SparseLinear(nn.Module):
     def __init__(self, in_features: int, out_features: int, bias: bool = True):
