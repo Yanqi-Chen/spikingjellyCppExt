@@ -17,9 +17,9 @@ def cal_fun_t(n, f, *args, **kwargs):
     torch.cuda.synchronize()
     return (time.time() - t_start) / n
 
-device = 'cuda:3'
-mat_size_list = (2**np.arange(4, 15)).tolist()
-# mat_size_list.reverse()
+device = 'cuda:0'
+mat_size_list = list(range(128, 16384 + 1, 128))
+mat_size_list.reverse()
 sparsity_list = np.arange(0.93, 1, 0.005).tolist()
 # sparsity_list.reverse()
 results = np.zeros(shape=[mat_size_list.__len__() * sparsity_list.__len__(), 4])
