@@ -86,7 +86,7 @@ void sparse_mm_dense_cusparse_backend(const int & cuda_device_id, const int & m,
     float alpha = 1.0f;
     float beta  = 0.0f;
     CUSPARSE_CALL(cusparseScsrmm2(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,CUSPARSE_OPERATION_TRANSPOSE,
-        n,p,m,total_nnz,&alpha,descrA,csrVal.data,RowPtr.data, ColInd.data,dB,p,&beta,tranBuffer.data,n));
+        m,p,n,total_nnz,&alpha,descrA,csrVal.data,RowPtr.data, ColInd.data,dB,p,&beta,tranBuffer.data,m));
 
     // cublasDestroy will synchronize the device
     cublasHandle_t& handle2 = handle2_[cuda_device_id].handle_;
