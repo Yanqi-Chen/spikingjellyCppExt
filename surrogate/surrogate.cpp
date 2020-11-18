@@ -1,6 +1,7 @@
 #include <iostream>
 #include <torch/extension.h>
 using namespace torch::autograd;
+
 torch::Tensor heaviside_step(const torch::Tensor & x)
 {   
     return x.ge(0).to(x.dtype());  // bool -> float
@@ -32,5 +33,5 @@ torch::Tensor sigmoid_apply(const torch::Tensor & x, const double & alpha)
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("sigmoid_apply", &sigmoid_apply);
+    m.def("sigmoid", &sigmoid_apply);
 }

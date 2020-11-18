@@ -6,7 +6,7 @@ from torch.utils import cpp_extension
 cext_sparse_mm_dense_cusparse = cpp_extension.load(name='sparse_mm_dense_cusparse',
     sources=['./gemm/gemm.cpp', './gemm/gemm.cu'], verbose=True).sparse_mm_dense_cusparse
 
-class SparseMMDense(torch.autograd.Function):
+class sparse_mm_dense_atf(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, sparse: torch.Tensor, dense: torch.Tensor):
@@ -39,7 +39,7 @@ def sparse_mm_dense(sparse: torch.Tensor, dense: torch.Tensor):
     :return: y = sparse.mm(sparse)
     :rtype: torch.Tensor
     '''
-    return SparseMMDense.apply(sparse, dense)
+    return sparse_mm_dense_atf.apply(sparse, dense)
 
 
 
