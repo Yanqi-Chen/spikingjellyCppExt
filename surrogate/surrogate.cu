@@ -2,8 +2,8 @@
 #include <cuda_runtime.h>
 #include <ATen/ATen.h>
 #include <math.h>
-__global__ void atan_backward_cuda_kernel(const float* __restrict__ grad_output, const float* __restrict__ x, const float & alpha,
-    float* __restrict__ grad_x, const int & size)
+__global__ void atan_backward_cuda_kernel(const float* __restrict__ grad_output, const float* __restrict__ x, const float alpha,
+    float* __restrict__ grad_x, const int size)
 {
   const int index = blockIdx.x * blockDim.x + threadIdx.x;
   if (index < size) {
