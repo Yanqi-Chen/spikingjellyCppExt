@@ -2,36 +2,9 @@
 #include <torch/extension.h>
 #include <math.h>
 using namespace torch::autograd;
-
-torch::Tensor heaviside_step(const torch::Tensor & x)
-{   
-    return x.ge(0).to(x);  // bool -> float
-}
-
-class sigmoid_atf: public Function<sigmoid_atf>
+torch::Tensor alpha_sigmoid_backward(const torch::Tensor & grad_output, const torch::Tensor & x, const torch::Tensor & alpha)
 {
-    public:
-  static torch::Tensor forward(AutogradContext *ctx, const torch::Tensor & x, const torch::Tensor & alpha)
-  {
-      if (x.requires_grad())
-      {
-        ctx->save_for_backward({x, alpha});
-      }
-      return heaviside_step(x);
-  }
-  static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs)
-  {
-      auto saved = ctx->get_saved_variables();
-      auto x = saved[0];
-      auto alpha = saved[1];
-      auto grad_x = alpha * torch::sigmoid_backward(grad_outputs[0], torch::sigmoid(x * alpha));  // main contribution to acceleration
-      return {grad_x, torch::Tensor()};
-  }
-};
-
-torch::Tensor sigmoid_apply(const torch::Tensor & x, const torch::Tensor & alpha)
-{
-    return sigmoid_atf::apply(x, alpha);
+    return alpha * torch::sigmoid_backward(grad_output, torch::sigmoid(x * alpha));
 }
 
 void atan_backward_cuda(const float* grad_output, const float* x, const float & alpha, float* grad_x, const int & size);
@@ -64,7 +37,7 @@ class atan_atf: public Function<atan_atf>
       {
         ctx->save_for_backward({x, alpha});
       }
-      return heaviside_step(x);
+      return x.ge(0).to(x);
   }
   static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs)
   {
@@ -82,6 +55,7 @@ torch::Tensor atan_apply(const torch::Tensor & x, const torch::Tensor & alpha)
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("sigmoid", &sigmoid_apply);
+    m.def("sigmoid_backward", &torch::sigmoid_backward);
+    m.def("alpha_sigmoid_backward", &alpha_sigmoid_backward);
     m.def("atan", &atan_apply);
 }
