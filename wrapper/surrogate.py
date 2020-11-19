@@ -17,3 +17,14 @@ class sigmoid(torch.autograd.Function):
         grad_x = ctx.saved_tensors[1] * cext_surrogate.sigmoid_backward(grad_output, (ctx.saved_tensors[0] * ctx.saved_tensors[1]).sigmoid_())
         return grad_x, None
 
+class atan(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, alpha):
+        if x.requires_grad:
+            ctx.save_for_backward(x, alpha)
+        return x.ge(0).to(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        grad_x = cext_surrogate.alpha_atan_backward(grad_output, ctx.saved_tensors[0], ctx.saved_tensors[1])
+        return grad_x, None
