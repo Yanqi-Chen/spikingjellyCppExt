@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import wrapper.nn
+import wrapper.layer
 
 device = 'cuda:7'
 
-asl = wrapper.nn.AutoSparseLinear(2048, 4096, bias=False)
+asl = wrapper.layer.AutoSparseLinear(2048, 512, bias=False)
 
-asl.benchmark(2048, device, run_times=128, verbose=True)
+asl.benchmark(128, device, run_times=1024, verbose=True, precision=1e-6)
 print(asl)

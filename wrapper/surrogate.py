@@ -8,7 +8,7 @@ extra_cuda_cflags = []
 if use_fast_math:
     extra_cuda_cflags.append('-use_fast_math')
 
-cext_surrogate = cpp_extension.load(name='surrogate', sources=['../surrogate/surrogate.cpp', '../surrogate/surrogate.cu'], 
+cext_surrogate = cpp_extension.load(name='surrogate', sources=['./surrogate/surrogate.cpp', './surrogate/surrogate.cu'], 
     extra_cuda_cflags=extra_cuda_cflags,
     verbose=True)
 

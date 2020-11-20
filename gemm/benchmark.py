@@ -3,7 +3,7 @@ import time
 import numpy as np
 import sys
 import math
-sys.path.append('..')
+sys.path.append('.')
 import wrapper
 import wrapper.functional
 

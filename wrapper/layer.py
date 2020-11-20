@@ -6,48 +6,44 @@ import wrapper.functional
 import math
 import numpy as np
 import time
-class SparseLinear(nn.Module):
-    def __init__(self, in_features: int, out_features: int, bias: bool = False):
-        super().__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.weight = nn.Parameter(torch.Tensor(in_features, out_features))
-        if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_features))
-        else:
-            self.register_parameter('bias', None)
-
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
-        if self.bias is not None:
-            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
-            bound = 1 / math.sqrt(fan_in)
-            nn.init.uniform_(self.bias, -bound, bound)
-
+class SparseLinear(nn.Linear):
     def forward(self, sparse: torch.Tensor) -> torch.Tensor:
         if self.bias is None:
-            return wrapper.functional.sparse_mm_dense(sparse, self.weight)
+            return wrapper.functional.sparse_mm_dense(sparse, self.weight.t())
         else:
-            return wrapper.functional.sparse_mm_dense(sparse, self.weight) + self.bias
+            return wrapper.functional.sparse_mm_dense(sparse, self.weight.t()) + self.bias
 
-    def extra_repr(self) -> str:
-        return 'in_features={}, out_features={}, bias={}'.format(
-            self.in_features, self.out_features, self.bias is not None
-        )
-
-class AutoSparseLinear(SparseLinear):
-    def __init__(self, in_features: int, out_features: int, bias: bool = False):
+class AutoSparseLinear(nn.Linear):
+    def __init__(self, in_features: int, out_features: int, bias: bool = False, in_spikes: bool = False):
         super().__init__(in_features, out_features, bias)
         self.critical_sparsity = {}  
         # 键是输入数据的batch_size，值是临界稀疏度
         # 当稀疏度高于临界稀疏度，前向传播使用稀疏矩阵乘法；否则使用普通矩阵乘法
+        self.in_spikes = in_spikes
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        batch_size = x.shape[0]
+        if batch_size not in self.critical_sparsity:
+            return F.linear(x, self.weight, self.bias)
+
+        else:
+            with torch.no_grad():
+                if self.in_spikes:
+                    sparsity = 1 - x.mean().item()
+                else:
+                    sparsity = (x == 0).mean().item()
+        if sparsity < self.critical_sparsity[batch_size]:
+            return F.linear(x, self.weight, self.bias)
+        else:
+            if self.bias is None:
+                return wrapper.functional.sparse_mm_dense(x, self.weight)
+            else:
+                return wrapper.functional.sparse_mm_dense(x, self.weight) + self.bias    
 
     def extra_repr(self) -> str:
         return f'in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, critical_sparsity={self.critical_sparsity}'
 
-    def benchmark(self, batch_size: int, device=None, run_times=1024, verbose=False):
+    def benchmark(self, batch_size: int, device=None, run_times=1024, precision=1e-4, verbose=False):
         if verbose:
             print('AutoSparseLinear is running benchmark...')
         if device is None:
@@ -71,7 +67,7 @@ class AutoSparseLinear(SparseLinear):
             sparisity = (sparisity_l + sparisity_r) / 2
             x = torch.rand(size=[batch_size, self.in_features], device=device)
             sparse = (x > sparisity).to(x)
-            sparisity_a = 1 - (sparse != 0).to(x).mean().item()  # sparse的真实稀疏度
+            sparisity_a = (sparse == 0).to(x).mean().item()  # sparse的真实稀疏度
 
             # 计算稀疏前反向所需时间
             t_list = []
@@ -79,7 +75,7 @@ class AutoSparseLinear(SparseLinear):
                 fc_sparse.zero_grad()
                 torch.cuda.synchronize()
                 t_start = time.perf_counter()
-                fc_sparse(x).sum().backward()
+                fc_sparse(sparse).sum().backward()
                 torch.cuda.synchronize()
                 t_list.append(time.perf_counter() - t_start)
             t_list = np.asarray(t_list)
@@ -91,7 +87,7 @@ class AutoSparseLinear(SparseLinear):
                 fc_dense.zero_grad()
                 torch.cuda.synchronize()
                 t_start = time.perf_counter()
-                fc_dense(x).sum().backward()
+                fc_dense(sparse).sum().backward()
                 torch.cuda.synchronize()
                 t_list.append(time.perf_counter() - t_start)
             t_list = np.asarray(t_list)
@@ -106,10 +102,13 @@ class AutoSparseLinear(SparseLinear):
             else:
                 break
 
-            if sparisity_r - sparisity_l  < 1e-4:
+            if sparisity_r - sparisity_l  < precision:
                 break
-        
-        self.critical_sparsity[str(batch_size)] = sparisity_a
+            
+        if t_sparse < t_dense:
+            # 如果搜索达到精度范围后，稀疏乘法仍然比普通乘法慢，则永远不调用稀疏乘法
+            # 所以只有t_sparse < t_dense才会记录入字典
+            self.critical_sparsity[batch_size] = sparisity_a
 
 
 
