@@ -5,7 +5,7 @@ import wrapper.nn
 
 device = 'cuda:7'
 
-asl = wrapper.nn.AutoSparseLinear(2048, 512, bias=False)
+asl = wrapper.nn.AutoSparseLinear(2048, 4096, bias=False)
 
-asl.benchmark(128, device, verbose=True)
+asl.benchmark(2048, device, verbose=True)
 print(asl)
