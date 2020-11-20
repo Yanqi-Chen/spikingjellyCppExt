@@ -71,7 +71,7 @@ class AutoSparseLinear(SparseLinear):
             sparisity = (sparisity_l + sparisity_r) / 2
             x = torch.rand(size=[batch_size, self.in_features], device=device)
             sparse = (x > sparisity).to(x)
-            sparisity_a = (sparse != 0).to(x).mean().item()  # sparse的真实稀疏度
+            sparisity_a = 1 - (sparse != 0).to(x).mean().item()  # sparse的真实稀疏度
 
             # 计算稀疏前反向所需时间
             t_list = []
@@ -100,13 +100,13 @@ class AutoSparseLinear(SparseLinear):
                 print(f'sparisity_a={sparisity_a}, t_sparse={t_sparse}, t_dense={t_dense}')
             
             if t_sparse > t_dense:
-                sparisity_r = sparisity_a
-            elif t_sparse < t_dense:
                 sparisity_l = sparisity_a
+            elif t_sparse < t_dense:
+                sparisity_r = sparisity_a
             else:
                 break
 
-            if sparisity_r - sparisity_l  < 1e-4 * run_times:
+            if sparisity_r - sparisity_l  < 1e-4:
                 break
         
         self.critical_sparsity[str(batch_size)] = sparisity_a
