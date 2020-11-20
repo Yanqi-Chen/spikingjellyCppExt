@@ -16,7 +16,7 @@ void sparse_mm_dense_cusparse(torch::Tensor & A, torch::Tensor & B, torch::Tenso
     }
     if (! B.is_contiguous())
     {
-        B = A.contiguous();
+        B = B.contiguous();
     }
     if (! C.is_contiguous())
     {
