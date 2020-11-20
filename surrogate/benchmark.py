@@ -71,16 +71,10 @@ def cmp_atan(device, x_shape=[1024], cal_times=1024):
             return grad_x, None
     cmp(atan.apply, wrapper.surrogate.atan.apply, device, x_shape, cal_times)
 
-device = 'cuda:5'
-# cmp_sigmoid(device)
-# cmp_atan(device, x_shape=[1024], cal_times=1)
-x = torch.rand([256], device=device)
-alpha = torch.ones([1], device=device)
+device = 'cuda:7'
+cmp_sigmoid(device)
+cmp_atan(device)
 
-x.requires_grad_(True)
-forward_backward(wrapper.surrogate.atan.apply, x, alpha)
-print(x.grad)
-x.grad.zero_()
 
     
 
