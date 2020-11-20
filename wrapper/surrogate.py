@@ -3,7 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils import cpp_extension
 import math
-cext_surrogate = cpp_extension.load(name='surrogate', sources=['../surrogate/surrogate.cpp', '../surrogate/surrogate.cu'], verbose=True)
+use_fast_math = True
+extra_cuda_cflags = []
+if use_fast_math:
+    extra_cuda_cflags.append('-use_fast_math')
+
+cext_surrogate = cpp_extension.load(name='surrogate', sources=['../surrogate/surrogate.cpp', '../surrogate/surrogate.cu'], 
+    extra_cuda_cflags=extra_cuda_cflags,
+    verbose=True)
 
 class sigmoid(torch.autograd.Function):
     @staticmethod
