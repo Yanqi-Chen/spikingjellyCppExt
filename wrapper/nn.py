@@ -64,9 +64,9 @@ class AutoSparseLinear(SparseLinear):
         fc_dense.to(device)
 
         sparisity_r = 1.0
-        sparisity_l = 0.0
+        sparisity_l = 0.9
         # 二分查找临界稀疏度
-
+        
         while True:
             sparisity = (sparisity_l + sparisity_r) / 2
             x = torch.rand(size=[batch_size, self.in_features], device=device)

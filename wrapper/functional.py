@@ -14,6 +14,7 @@ class sparse_mm_dense_atf(torch.autograd.Function):
             ctx.save_for_backward(sparse, dense)
         y = torch.zeros(size=[sparse.shape[0], dense.shape[1]], dtype=torch.float, device=sparse.device)
         cext_sparse_mm_dense_cusparse(sparse, dense, y)
+        # y = torch.mm(sparse, dense)
         return y
 
     @staticmethod
@@ -26,6 +27,7 @@ class sparse_mm_dense_atf(torch.autograd.Function):
         if ctx.needs_input_grad[1]:
             grad_dense = torch.zeros_like(dense.data)
             cext_sparse_mm_dense_cusparse(sparse.t(), grad_output, grad_dense)
+            # grad_dense = sparse.t().mm(grad_output)
         return grad_sparse, grad_dense
 
 
