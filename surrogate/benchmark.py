@@ -24,7 +24,7 @@ def cmp(fun1, fun2, device, x_shape=[1024], cal_times=1024):
     x.grad.zero_()
     t2 = wrapper.cal_fun_t(cal_times, forward_backward, fun2, x, alpha)
     x.grad.zero_()
-    print('forward and backward', t1, t2, 1e-5)
+    print('forward and backward', t1, t2)
     forward_backward(fun1, x, alpha)
     x1_grad = x.grad.clone()
     x.grad.zero_()
