@@ -4,16 +4,15 @@ import torch.nn.functional as F
 from torch.utils import cpp_extension
 
 cext_sparse_mm_dense_cusparse = cpp_extension.load(name='sparse_mm_dense_cusparse',
-    sources=['./gemm/gemm.cpp', './gemm/gemm.cu'], verbose=True).sparse_mm_dense_cusparse
+    sources=['../gemm/gemm.cpp', '../gemm/gemm.cu'], verbose=True).sparse_mm_dense_cusparse
 
 class sparse_mm_dense_atf(torch.autograd.Function):
-
     @staticmethod
     def forward(ctx, sparse: torch.Tensor, dense: torch.Tensor):
         # sparse: [M, N]  dense: [N, P]  y:[M, P]
         if sparse.requires_grad or dense.requires_grad:
             ctx.save_for_backward(sparse, dense)
-        y = torch.zeros(size=[sparse.shape[0], dense.shape[1]])
+        y = torch.zeros(size=[sparse.shape[0], dense.shape[1]], dtype=torch.float, device=sparse.device)
         cext_sparse_mm_dense_cusparse(sparse, dense, y)
         return y
 

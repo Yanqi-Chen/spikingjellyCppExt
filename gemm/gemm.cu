@@ -20,19 +20,21 @@ using namespace std;
 template<class T>
 struct reCuBuffer
 {
-T* data = NULL;
-int len = 0;
+    T* data = NULL;
+    int len = 0;
 };
 
 template<class T>
 void resize(reCuBuffer<T>& buffer, int size)
 {
-if(size > buffer.len)
-{
-if(buffer.len > 0)CUDA_CALL( cudaFree(buffer.data));
-CUDA_CALL( cudaMalloc( &(buffer.data), size));
-buffer.len = size;
-}
+    if(size > buffer.len)
+    {
+        if(buffer.len > 0)
+            CUDA_CALL(cudaFree(buffer.data));
+            
+        CUDA_CALL(cudaMalloc( &(buffer.data), size));
+        buffer.len = size;
+    }
 }
 
 #define num_device 16
@@ -42,8 +44,8 @@ static reCuBuffer<float> csrVal_[num_device], tranBuffer_[num_device];
 
 struct cublasHandle_
 {
-cublasHandle_t handle_;
-bool init = false;
+    cublasHandle_t handle_;
+    bool init = false;
 };
 static cublasHandle_ handle2_[num_device];
 

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import wrapper
+import wrapper.functional
 import math
 class SparseLinear(nn.Module):
     def __init__(self, in_features: int, out_features: int, bias: bool = True):
@@ -24,7 +24,10 @@ class SparseLinear(nn.Module):
             nn.init.uniform_(self.bias, -bound, bound)
 
     def forward(self, sparse: torch.Tensor) -> torch.Tensor:
-        return wrapper.functional.sparse_mm_dense(sparse, self.weight) + self.bias
+        if self.bias is None:
+            return wrapper.functional.sparse_mm_dense(sparse, self.weight)
+        else:
+            return wrapper.functional.sparse_mm_dense(sparse, self.weight) + self.bias
 
     def extra_repr(self) -> str:
         return 'in_features={}, out_features={}, bias={}'.format(
