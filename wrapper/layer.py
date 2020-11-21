@@ -22,16 +22,23 @@ class AutoSparseLinear(nn.Linear):
         self.in_spikes = in_spikes
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.device == 'cpu':
+            return F.linear(x, self.weight, self.bias)  # 暂未实现CPU上的稀疏矩阵乘法
+        
         batch_size = x.shape[0]
         if batch_size not in self.critical_sparsity:
-            return F.linear(x, self.weight, self.bias)
+            self.benchmark(batch_size, verbose=True)
 
+        
+        if self.critical_sparsity[batch_size] is None:
+            return F.linear(x, self.weight, self.bias)
         else:
             with torch.no_grad():
                 if self.in_spikes:
                     sparsity = 1 - x.mean().item()
                 else:
                     sparsity = (x == 0).mean().item()
+        
         if sparsity < self.critical_sparsity[batch_size]:
             return F.linear(x, self.weight, self.bias)
         else:
@@ -43,11 +50,15 @@ class AutoSparseLinear(nn.Linear):
     def extra_repr(self) -> str:
         return f'in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, critical_sparsity={self.critical_sparsity}'
 
-    def benchmark(self, batch_size: int, device=None, run_times=1024, precision=1e-4, verbose=False):
-        if verbose:
-            print('AutoSparseLinear is running benchmark...')
+    def benchmark(self, batch_size: int, device=None, run_times=1024, precision=1e-4, verbose=True):
+        assert device != 'cpu'
+
         if device is None:
             device = self.weight.device
+
+        if verbose:
+            print(f'{self} is running benchmark for batch_size={batch_size} at precision={precision} on device={device}')
+
         
         if self.bias is None:
             bias = False
@@ -60,7 +71,7 @@ class AutoSparseLinear(nn.Linear):
         fc_dense.to(device)
 
         sparisity_r = 1.0
-        sparisity_l = 0.9
+        sparisity_l = 0.1
         # 二分查找临界稀疏度
         
         while True:
@@ -106,10 +117,13 @@ class AutoSparseLinear(nn.Linear):
                 break
             
         if t_sparse < t_dense:
-            # 如果搜索达到精度范围后，稀疏乘法仍然比普通乘法慢，则永远不调用稀疏乘法
-            # 所以只有t_sparse < t_dense才会记录入字典
             self.critical_sparsity[batch_size] = sparisity_a
-
+        else:
+            # 如果搜索达到精度范围后，稀疏乘法仍然比普通乘法慢，则永远不调用稀疏乘法
+            self.critical_sparsity[batch_size] = None
+        print(f'critical_sparsity[{batch_size}]={self.critical_sparsity[batch_size]}')
+        del x, sparse, fc_sparse, fc_dense
+        torch.cuda.empty_cache()
 
 
                 

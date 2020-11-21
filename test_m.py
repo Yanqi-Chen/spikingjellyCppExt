@@ -6,6 +6,10 @@ import wrapper.layer
 device = 'cuda:7'
 
 asl = wrapper.layer.AutoSparseLinear(2048, 512, bias=False)
+asl.to(device)
 
-asl.benchmark(128, device, run_times=1024, verbose=True, precision=1e-6)
-print(asl)
+asl(torch.rand([16, 2048], device=device))
+asl(torch.rand([32, 2048], device=device))
+asl(torch.rand([16, 2048], device=device))
+
+
