@@ -55,7 +55,10 @@
         "typeindex": "cpp",
         "typeinfo": "cpp",
         "valarray": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "strstream": "cpp",
+        "bitset": "cpp",
+        "cfenv": "cpp"
     },
     "python.pythonPath": "/home/wfang/anaconda3/envs/pytorch-env/bin/python"
 }
