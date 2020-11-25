@@ -51,7 +51,7 @@
 // 调用核函数的代码段。function_name是核函数的名字，...是额外的参数
 #define CALL_KERNEL_FUNCTION(function_name, ...) function_name<<<blocks, threads>>>(x, v, s, v_next, v_th, v_reset, size, __VA_ARGS__);
 
-// 定义
+// 定义前向传播函数的代码段。function_name是核函数的名字，...是额外的参数
 #define DEF_FORWARD_FUNCTION(function_name, ...) void function_name (const float* x, const float* v, float* s, float* v_next, const float & v_th, const float & v_reset, const int & size, const int & gpu_id, __VA_ARGS__)
 
 //LIF--------------------------------------------

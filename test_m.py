@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from wrapper import neuron
-device = 'cuda:2'
+device = 'cuda:0'
 
 
 lif = neuron.LIFNode(tau=100.0)
