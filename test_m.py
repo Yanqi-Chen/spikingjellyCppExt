@@ -6,7 +6,7 @@ import wrapper
 from wrapper import neuron
 device = 'cuda:1'
 
-lif = neuron.LIFNode(tau=100.0)
+lif = neuron.LIFNode(tau=100.0, v_reset=None)
 lif.to(device)
 print(lif)
 x = torch.rand([4], device=device)
