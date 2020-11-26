@@ -1,8 +1,8 @@
 #include <iostream>
 #include <torch/extension.h>
 #include <math.h>
-#include "neuron_def.h"
-DEF_FORWARD_CUDA_FUNCTION(LIF_hard_reset_forward_cuda, const float & tau);
+void LIF_hard_reset_forward_cuda (const float* x, const float* v, float* s, float* v_next, const float & v_th, 
+  const float & v_reset, const int & size, const int & gpu_id, const float & tau);
 std::vector<at::Tensor> LIF_hard_reset_forward(torch::Tensor & x, torch::Tensor & v, const float & v_th, const float & v_reset, const float & tau)
 {
     TORCH_CHECK(x.device().is_cuda(), "x must be a CUDA tensor");
@@ -27,6 +27,7 @@ std::vector<at::Tensor> LIF_hard_reset_forward(torch::Tensor & x, torch::Tensor 
     }
     LIF_hard_reset_forward_cuda(x.data_ptr<float>(), v.data_ptr<float>(), s.data_ptr<float>(), v_next.data_ptr<float>(), 
         v_th, v_reset, x.numel(), x.get_device(), tau);
+    std::cout<<x.device()<<v.device()<<s.device()<<v_next.device();
     return {s, v_next};
 }
 
