@@ -5,6 +5,30 @@
 // 定义HARD_RESET的前向传播函数。function_name是函数的名字，...是额外的参数
 #define DEF_HARD_RESET_FORWARD_FUNCTION(function_name, ...) std::vector<at::Tensor> function_name(torch::Tensor & x, torch::Tensor & v, const float & v_th, const float & v_reset, __VA_ARGS__)
 
+#define CALL_HARD_RESET_FORWARD_CUDA_FUNCTION(function_name, ...) do { \
+  TORCH_CHECK(x.device().is_cuda(), "x must be a CUDA tensor"); \
+  TORCH_CHECK(v.device().is_cuda(), "v must be a CUDA tensor"); \
+  if (! x.is_contiguous()) \
+  { \
+      x = x.contiguous(); \
+  } \
+  if (! v.is_contiguous()) \
+  { \
+      v = v.contiguous(); \
+  } \
+  auto v_next = torch::zeros_like(v.data()); \
+  auto spike = torch::zeros_like(v.data()); \
+  if (! v_next.is_contiguous()) \
+  { \
+      v_next = v_next.contiguous(); \
+  } \
+  if (! spike.is_contiguous()) \
+  { \
+      spike = spike.contiguous(); \
+  } \
+  function_name(x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), v_th, v_reset, x.numel(), x.get_device(), __VA_ARGS__); \
+  return {spike, v_next}; \
+} while(0)
 
 
 
