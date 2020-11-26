@@ -1,6 +1,7 @@
 #pragma once
 
 // cpp函数相关的定义
+
 // 定义HARD_RESET的前向传播函数。function_name是函数的名字，...是额外的参数
 #define DEF_HARD_RESET_FORWARD_FUNCTION(function_name, ...) std::vector<at::Tensor> function_name(torch::Tensor & x, torch::Tensor & v, const float & v_th, const float & v_reset, __VA_ARGS__)
 
@@ -9,7 +10,7 @@
 
 // cuda函数相关的定义--------------------------------
 // 确定线程数量，设置GPU的代码段
-#define INIT_THREAD_DEVICE const int threads = 1024;const int blocks = (size + threads - 1) / threads;cudaError_t error = cudaGetLastError();if(error != cudaSuccess) {printf("CUDA error: %s\n", cudaGetErrorString(error));exit(-1);}
+#define INIT_THREAD_DEVICE const int threads = 1024;const int blocks = (size + threads - 1) / threads;cudaError_t error = cudaSetDevice(gpu_id);if(error != cudaSuccess) {printf("CUDA error: %s\n", cudaGetErrorString(error));exit(-1);}
 
 
 // hard reset---------------------------
@@ -32,7 +33,7 @@
 } while(0)
 
 // hard reset的核函数代码段。用户只需要定义如何充电
-#define HARD_RESET_KERNEL_FUNCTION(charge_function) do {\
+#define HARD_RESET_KERNEL(charge_function) do {\
   const int index = blockIdx.x * blockDim.x + threadIdx.x; \
   if (index < size) \
   { \

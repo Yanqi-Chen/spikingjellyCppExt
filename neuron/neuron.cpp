@@ -16,19 +16,19 @@ DEF_HARD_RESET_FORWARD_FUNCTION(LIF_hard_reset_forward, const float & tau)
         v = v.contiguous();
     }
     auto v_next = torch::zeros_like(v.data());
-    auto s = torch::zeros_like(v.data());
+    auto spike = torch::zeros_like(v.data());
     if (! v_next.is_contiguous())
     {
         v_next = v_next.contiguous();
     }
-    if (! s.is_contiguous())
+    if (! spike.is_contiguous())
     {
-        s = s.contiguous();
+        spike = spike.contiguous();
     }
-    LIF_hard_reset_forward_cuda(x.data_ptr<float>(), v.data_ptr<float>(), s.data_ptr<float>(), v_next.data_ptr<float>(), 
+    LIF_hard_reset_forward_cuda(x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), 
         v_th, v_reset, x.numel(), x.get_device(), tau);
     
-    return {s, v_next};
+    return {spike, v_next};
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
