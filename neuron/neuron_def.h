@@ -72,6 +72,20 @@
 // 调用核函数的代码段。function_name是核函数的名字，...是额外的参数
 #define CALL_HARD_RESET_KERNEL_FUNCTION(function_name, ...) function_name<<<blocks, threads>>>(x, v, spike, v_next, v_th, v_reset, size, __VA_ARGS__)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // soft reset---------------------------
 #define DEF_SOFT_RESET_FORWARD_FUNCTION(function_name, ...) std::vector<at::Tensor> function_name(torch::Tensor & x, torch::Tensor & v, const float & v_th, __VA_ARGS__)
 // 检查输入、调用hard reset前向传播的CUDA函数。function_name是函数的名字，...是额外的参数
