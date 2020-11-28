@@ -56,3 +56,24 @@ class LIFNode(BaseNode):
             spike, self.v = cext_neuron.LIF_hard_reset_forward(x, self.v, self.v_threshold, self.v_reset, self.tau)
             return spike
 
+class IFNode(BaseNode):
+    def __init__(self, v_threshold=1.0, v_reset=0.0, detach_reset=False):
+        super().__init__(v_threshold, v_reset, detach_reset)
+
+    
+    def forward(self, x: torch.Tensor):
+        if self.v_reset is None:
+            # soft reset
+            if not isinstance(self.v, torch.Tensor):
+                self.v = torch.zeros_like(x.data)
+            spike, self.v = cext_neuron.IF_soft_reset_forward(x, self.v, self.v_threshold)
+            return spike
+        else:
+            # hard reset
+            if not isinstance(self.v, torch.Tensor):
+                self.v = torch.zeros_like(x.data)
+                if self.v_reset != 0.0:
+                    self.v.fill_(self.v_reset)
+            spike, self.v = cext_neuron.IF_hard_reset_forward(x, self.v, self.v_threshold, self.v_reset)
+            return spike
+

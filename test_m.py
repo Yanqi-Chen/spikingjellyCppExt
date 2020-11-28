@@ -6,15 +6,15 @@ import wrapper
 from wrapper import neuron
 device = 'cuda:1'
 
-lif = neuron.LIFNode(tau=100.0, v_reset=None)
-lif.to(device)
-print(lif)
+if_neuron = neuron.IFNode(v_reset=None)
+if_neuron.to(device)
+print(if_neuron)
 x = torch.rand([4], device=device)
 T = 150
 print(x)
-for t in range(1):
-    lif(x)
-    print(lif.v)
+for t in range(3):
+    if_neuron(x)
+    print(if_neuron.v)
 
 
 

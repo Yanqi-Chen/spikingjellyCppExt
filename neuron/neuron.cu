@@ -26,3 +26,25 @@ DEF_SOFT_RESET_FORWARD_CUDA_FUNCTION(LIF_soft_reset_forward_cuda, const float & 
   const float reciprocal_tau = 1 / tau;
   CALL_SOFT_RESET_KERNEL_FUNCTION(LIF_soft_reset_forward_cuda_kernel, reciprocal_tau, 1 - reciprocal_tau);
 }
+
+//IF--------------------------------------------
+DEF_HARD_RESET_KERNEL_FUNCTION(IF_hard_reset_forward_cuda_kernel)
+{
+  HARD_RESET_KERNEL(v[index] + x[index]);
+}
+DEF_HARD_RESET_FORWARD_CUDA_FUNCTION(IF_hard_reset_forward_cuda)
+{
+  INIT_THREAD_DEVICE;
+  CALL_HARD_RESET_KERNEL_FUNCTION(IF_hard_reset_forward_cuda_kernel);
+}
+
+
+DEF_SOFT_RESET_KERNEL_FUNCTION(IF_soft_reset_forward_cuda_kernel)
+{
+  SOFT_RESET_KERNEL(v[index] + x[index]);
+}
+DEF_SOFT_RESET_FORWARD_CUDA_FUNCTION(IF_soft_reset_forward_cuda)
+{
+  INIT_THREAD_DEVICE;
+  CALL_SOFT_RESET_KERNEL_FUNCTION(IF_soft_reset_forward_cuda_kernel);
+}
