@@ -7,9 +7,33 @@ extra_cuda_cflags = []
 if use_fast_math:
     extra_cuda_cflags.append('-use_fast_math')
 
-cext_neuron = cpp_extension.load(name='neuron', sources=['./neuron/neuron.cpp', './neuron/neuron.cu'], 
+cext_neuron_forward = cpp_extension.load(name='neuron_forward', sources=['./neuron/neuron_forward.cpp', './neuron/neuron_forward_kernel.cu'], 
     extra_cuda_cflags=extra_cuda_cflags,
     verbose=True)
+
+cext_neuron_backward = cpp_extension.load(name='neuron_backward', sources=['./neuron/neuron_backward.cpp', './neuron/neuron_backward_kernel.cu'], 
+    extra_cuda_cflags=extra_cuda_cflags,
+    verbose=True)
+
+class lif_hard_forward_backward_atan(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, v, v_threshold, v_reset, tau, alpha, detach_reset):
+        spike, h, v_next = cext_neuron_forward.LIF_hard_reset_forward(x, v, v_threshold, v_reset, tau)
+        if x.requires_grad:
+            ctx.save_for_backward(x, h, spike)
+            ctx.v_threshold = v_threshold
+            ctx.v_reset = v_reset
+            ctx.tau = tau
+            ctx.alpha = alpha
+            ctx.detach_reset = detach_reset
+        return spike, h, v_next
+
+    @staticmethod
+    def backward(ctx, grad_spike, grad_h, grad_v_next):
+        print(grad_spike)  # 这里有问题
+        grad_x, grad_v = cext_neuron_backward.LIF_hard_reset_backward_atan(grad_spike, grad_v_next, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.saved_tensors[2], ctx.v_threshold, ctx.v_reset, ctx.tau, ctx.alpha, ctx.detach_reset)
+        return grad_x, grad_v, None, None, None, None, None
+
 
 class BaseNode(nn.Module):
     def __init__(self, v_threshold=1.0, v_reset=0.0, detach_reset=False):
@@ -43,37 +67,12 @@ class LIFNode(BaseNode):
     def forward(self, x: torch.Tensor):
         if self.v_reset is None:
             # soft reset
-            if not isinstance(self.v, torch.Tensor):
-                self.v = torch.zeros_like(x.data)
-            spike, self.v = cext_neuron.LIF_soft_reset_forward(x, self.v, self.v_threshold, self.tau)
-            return spike
+            raise NotImplementedError
         else:
             # hard reset
             if not isinstance(self.v, torch.Tensor):
                 self.v = torch.zeros_like(x.data)
                 if self.v_reset != 0.0:
                     self.v.fill_(self.v_reset)
-            spike, self.v = cext_neuron.LIF_hard_reset_forward(x, self.v, self.v_threshold, self.v_reset, self.tau)
+            h, spike, self.v = lif_hard_forward_backward_atan.apply(x, self.v, self.v_threshold, self.v_reset, self.tau, 2.0, self.detach_reset)
             return spike
-
-class IFNode(BaseNode):
-    def __init__(self, v_threshold=1.0, v_reset=0.0, detach_reset=False):
-        super().__init__(v_threshold, v_reset, detach_reset)
-
-    
-    def forward(self, x: torch.Tensor):
-        if self.v_reset is None:
-            # soft reset
-            if not isinstance(self.v, torch.Tensor):
-                self.v = torch.zeros_like(x.data)
-            spike, self.v = cext_neuron.IF_soft_reset_forward(x, self.v, self.v_threshold)
-            return spike
-        else:
-            # hard reset
-            if not isinstance(self.v, torch.Tensor):
-                self.v = torch.zeros_like(x.data)
-                if self.v_reset != 0.0:
-                    self.v.fill_(self.v_reset)
-            spike, self.v = cext_neuron.IF_hard_reset_forward(x, self.v, self.v_threshold, self.v_reset)
-            return spike
-
