@@ -10,18 +10,31 @@ import wrapper.neuron
 import spikingjelly.clock_driven.neuron as sj_neuron
 import spikingjelly.clock_driven.surrogate as sj_surrogate
 def cmp_speed():
-    lif_c = wrapper.neuron.LIFNode()
-    lif_p = sj_neuron.LIFNode()
+    def forward_backward(lif, x, T):
+        spikes = 0
+        for t in range(T):
+            spikes += lif(x)
+        spikes.sum().backward()
+        x.grad.zero_()
+        lif.reset()
+    
+    lif_c = wrapper.neuron.LIFNode(tau=100.0)
+    lif_p = sj_neuron.LIFNode(tau=100.0, surrogate_function=sj_surrogate.ATan(alpha=2))
     print(lif_c, lif_p)
-    device = 'cuda:1'
+    device = 'cuda:6'
     lif_c.to(device)
     lif_p.to(device)
-    x = torch.rand([64, 1024], device=device) * 2
 
-    with torch.no_grad():
-        t_c = wrapper.cal_fun_t(1024, lif_c, x)
-        t_p = wrapper.cal_fun_t(1024, lif_p, x)
-        print(t_c, t_p, 'CUDA speed up =', t_p / t_c)
+    x = torch.rand([64, 1024], device=device) * 2
+    print(x)
+    x.requires_grad_(True)
+
+    t_p = wrapper.cal_fun_t(1024, device, forward_backward, lif_p, x, 16)
+    x.grad.zero_()
+    t_c = wrapper.cal_fun_t(1024, device, forward_backward, lif_c, x, 16)
+    x.grad.zero_()
+
+    print(t_c, t_p, 'CUDA speed up =', t_p / t_c)
 
 def cmp_voltage():
     lif_c = wrapper.neuron.LIFNode(tau=100.0)
@@ -55,4 +68,11 @@ def cmp_voltage():
     print('Python grad', x_p.grad)
     s_c.sum().backward()
     print('CUDA grad', x_c.grad)
+
 cmp_voltage()
+
+
+
+
+
+
