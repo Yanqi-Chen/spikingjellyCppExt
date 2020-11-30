@@ -5,9 +5,8 @@
 
 __forceinline__  __device__ float grad_atan(const float & alpha, const float & x)
 {
-  printf("%f %f ",M_PI_2 * alpha * x, powf(M_PI_2 * alpha * x, 2));
-  return alpha / 2.0f / (1.0f + powf(M_PI_2 * alpha * x, 2));
-  
+  const float M_PI_2__alpha__x = M_PI_2 * alpha * x;
+  return alpha / 2.0f / (1.0f + M_PI_2__alpha__x * M_PI_2__alpha__x);
 }
 
 __global__ void LIF_hard_reset_backward_cuda_kernel_atan(
