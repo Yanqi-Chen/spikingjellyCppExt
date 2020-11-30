@@ -27,8 +27,8 @@ __global__ void LIF_hard_reset_forward_cuda_kernel(
 }
 
 void LIF_hard_reset_forward_cuda(const float* x, const float* v, float* h, float* spike, float* v_next, 
-    const float & v_th, const float & v_reset, const int & size, const int & gpu_id, 
-    const float & tau)
+  const float & v_th, const float & v_reset, const int & size, const int & gpu_id, 
+  const float & tau)
 {
     const int threads = 1024;
     const int blocks = (size + threads - 1) / threads;

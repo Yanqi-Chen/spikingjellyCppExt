@@ -46,7 +46,7 @@ def cmp_voltage():
     x_c.requires_grad_(True)
     x_p = x.clone()
     x_p.requires_grad_(True)
-    for t in range(T):
+    for t in range(1):
         s_c += lif_c(x_c)
         s_p += lif_p(x_p)
     print(s_c)

@@ -3,9 +3,11 @@
 #include <math.h>
 #include <stdio.h>
 
-__forceinline__  __device__ void grad_atan(const float & alpha, const float & x, float & grad_x)
+__forceinline__  __device__ float grad_atan(const float & alpha, const float & x)
 {
-  grad_x = alpha / 2.0f / (1.0f + powf(M_PI_2 * alpha * x, 2));
+  printf("%f %f ",M_PI_2 * alpha * x, powf(M_PI_2 * alpha * x, 2));
+  return alpha / 2.0f / (1.0f + powf(M_PI_2 * alpha * x, 2));
+  
 }
 
 __global__ void LIF_hard_reset_backward_cuda_kernel_atan(
@@ -19,8 +21,7 @@ __global__ void LIF_hard_reset_backward_cuda_kernel_atan(
   const int index = blockIdx.x * blockDim.x + threadIdx.x;
   if (index < size)
   {
-    float grad_spike_to_h;
-    grad_atan(alpha, x[index], grad_spike_to_h);
+    float grad_spike_to_h = grad_atan(alpha, h[index] - v_th);
     float grad_h;
     if (detach_reset)
     {
@@ -38,7 +39,7 @@ __global__ void LIF_hard_reset_backward_cuda_kernel_atan(
 void LIF_hard_reset_backward_cuda_atan(
   float* grad_x, float* grad_v,
   const float* grad_spike, const float* grad_v_next,
-  const float* x, const float* h, const float* spike,
+  const float* x, const float* h, const float* spike, 
   const float & v_th, const float & v_reset, const int & size, const int & gpu_id, 
   const float & tau, const float & alpha, const bool & detach_reset)
 {

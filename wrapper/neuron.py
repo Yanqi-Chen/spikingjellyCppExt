@@ -18,7 +18,7 @@ cext_neuron_backward = cpp_extension.load(name='neuron_backward', sources=['./ne
 class lif_hard_forward_backward_atan(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, v, v_threshold, v_reset, tau, alpha, detach_reset):
-        spike, h, v_next = cext_neuron_forward.LIF_hard_reset_forward(x, v, v_threshold, v_reset, tau)
+        h, spike, v_next = cext_neuron_forward.LIF_hard_reset_forward(x, v, v_threshold, v_reset, tau)
         if x.requires_grad:
             ctx.save_for_backward(x, h, spike)
             ctx.v_threshold = v_threshold
@@ -26,11 +26,10 @@ class lif_hard_forward_backward_atan(torch.autograd.Function):
             ctx.tau = tau
             ctx.alpha = alpha
             ctx.detach_reset = detach_reset
-        return spike, h, v_next
+        return h, spike, v_next
 
     @staticmethod
-    def backward(ctx, grad_spike, grad_h, grad_v_next):
-        print(grad_spike)  # 这里有问题
+    def backward(ctx, grad_h, grad_spike, grad_v_next):
         grad_x, grad_v = cext_neuron_backward.LIF_hard_reset_backward_atan(grad_spike, grad_v_next, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.saved_tensors[2], ctx.v_threshold, ctx.v_reset, ctx.tau, ctx.alpha, ctx.detach_reset)
         return grad_x, grad_v, None, None, None, None, None
 
