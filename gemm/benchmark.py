@@ -12,7 +12,7 @@ def check_sparse_mm_dense(device):
         sparse = (torch.rand([1024, 2048]).to(device) > 0.9).float()
         dense = torch.rand([2048, 4096]).to(device)
         with torch.no_grad():
-            wrapper.assert_equal(wrapper.functional.sparse_mm_dense(sparse, dense), sparse.mm(dense), 1e-4)
+            wrapper.assert_equal(wrapper.functional.sparse_mm_dense(sparse, dense), sparse.mm(dense), 2e-4)
         sparse.requires_grad_(True)
         dense.requires_grad_(True)
         wrapper.functional.sparse_mm_dense(sparse, dense).sum().backward()
