@@ -21,7 +21,7 @@ __global__ void LIF_hard_reset_backward_cuda_kernel_atan(
   const int index = blockIdx.x * blockDim.x + threadIdx.x;
   if (index < size)
   {
-    float grad_spike_to_h = grad_atan(alpha, h[index] - v_th);
+    const float grad_spike_to_h = grad_atan(alpha, h[index] - v_th);
     float grad_h;
     if (detach_reset)
     {
