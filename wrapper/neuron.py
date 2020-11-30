@@ -30,7 +30,7 @@ class lif_hard_forward_backward_atan(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_h, grad_spike, grad_v_next):
-        grad_x, grad_v = cext_neuron_backward.LIF_hard_reset_backward(grad_spike, grad_v_next, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.saved_tensors[2], ctx.v_threshold, ctx.v_reset, ctx.tau, ctx.alpha, ctx.detach_reset, 0)
+        grad_x, grad_v = cext_neuron_backward.LIF_hard_reset_backward(grad_spike, grad_v_next, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.saved_tensors[2], ctx.v_threshold, ctx.v_reset, ctx.alpha, ctx.detach_reset, 0, ctx.tau)
         return grad_x, grad_v, None, None, None, None, None
 
 
