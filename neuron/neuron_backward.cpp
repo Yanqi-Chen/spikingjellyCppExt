@@ -31,7 +31,11 @@ std::vector<at::Tensor> LIF_hard_reset_backward(
     return {grad_x, grad_v};
 }
 
+//bptt---------------------------------
+
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("LIF_hard_reset_backward", &LIF_hard_reset_backward);
 }
+
 

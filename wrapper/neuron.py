@@ -87,5 +87,5 @@ class LIFNodeTT(LIFNode):
                 self.v = torch.zeros_like(x[0].data)
                 if self.v_reset != 0.0:
                     self.v.fill_(self.v_reset)
-            h, spike, self.v = cext_neuron_forward.LIF_hard_reset_fptt(x, self.v, self.v_threshold, self.v_reset, self.tau)
-            return spike
+            h_seq, spike_seq, self.v = cext_neuron_forward.LIF_hard_reset_fptt(x, self.v, self.v_threshold, self.v_reset, self.tau)
+            return spike_seq[-1]
