@@ -37,7 +37,7 @@ __device__ const grad_surrogate_function grad_surrogate_function_pointer[2] = {
 __global__ void LIF_hard_reset_backward_cuda_kernel(
     float* __restrict__ grad_x, float* __restrict__ grad_v,
     const float* __restrict__ grad_spike, const float* __restrict__ grad_v_next,
-    const float* __restrict__ x,  const float* __restrict__ h,  const float* __restrict__ spike, 
+    const float* __restrict__ h,  const float* __restrict__ spike, 
     const float v_th, const float v_reset, const int size,
     const float alpha, const bool detach_reset, const int grad_surrogate_function_index,
     const float reciprocal_tau, const float one_sub_reciprocal_tau
@@ -49,7 +49,7 @@ __global__ void LIF_hard_reset_backward_cuda_kernel(
 void LIF_hard_reset_backward_cuda(
   float* grad_x, float* grad_v,
   const float* grad_spike, const float* grad_v_next,
-  const float* x, const float* h, const float* spike, 
+  const float* h, const float* spike, 
   const float & v_th, const float & v_reset, const int & size, const int & gpu_id, 
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index,
   const float & tau)
@@ -58,7 +58,7 @@ void LIF_hard_reset_backward_cuda(
   const float reciprocal_tau = 1 / tau;
   LIF_hard_reset_backward_cuda_kernel<<<blocks, threads>>>(
     grad_x, grad_v, grad_spike, grad_v_next, 
-    x, h, spike, 
+    h, spike, 
     v_th, v_reset, size, 
     alpha, detach_reset, grad_surrogate_function_index,
     reciprocal_tau, 1 - reciprocal_tau
