@@ -7,14 +7,14 @@ void LIF_hard_reset_forward_cuda(const float* x, const float* v, float* h, float
     const float & v_th, const float & v_reset, const int & size, const int & gpu_id, 
     const float & tau);
 
-#define HARD_RESET_FORWARD CHECK_TENSOR(x);CHECK_TENSOR(v);auto h = torch::zeros_like(v.data());auto spike = torch::zeros_like(v.data());auto v_next = torch::zeros_like(v.data());CHECK_TENSOR(h);CHECK_TENSOR(spike);CHECK_TENSOR(v_next)
+#define HARD_RESET_FORWARD_CHECK CHECK_TENSOR(x);CHECK_TENSOR(v);auto h = torch::zeros_like(v.data());auto spike = torch::zeros_like(v.data());auto v_next = torch::zeros_like(v.data());CHECK_TENSOR(h);CHECK_TENSOR(spike);CHECK_TENSOR(v_next)
 
 
 std::vector<at::Tensor> LIF_hard_reset_forward(torch::Tensor & x, torch::Tensor & v, const float & v_th, const float & v_reset, 
     const float & tau)
 {
     
-    HARD_RESET_FORWARD;
+    HARD_RESET_FORWARD_CHECK;
     LIF_hard_reset_forward_cuda(x.data_ptr<float>(), v.data_ptr<float>(), h.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), 
         v_th, v_reset, x.numel(), x.get_device(),
         tau);
