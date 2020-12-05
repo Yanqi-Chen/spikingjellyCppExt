@@ -75,3 +75,17 @@ class LIFNode(BaseNode):
                     self.v.fill_(self.v_reset)
             h, spike, self.v = lif_hard_forward_backward_atan.apply(x, self.v, self.v_threshold, self.v_reset, self.tau, 2.0, self.detach_reset)
             return spike
+
+class LIFNodeTT(LIFNode):
+     def forward(self, x: torch.Tensor):
+        if self.v_reset is None:
+            # soft reset
+            raise NotImplementedError
+        else:
+            # hard reset
+            if not isinstance(self.v, torch.Tensor):
+                self.v = torch.zeros_like(x[0].data)
+                if self.v_reset != 0.0:
+                    self.v.fill_(self.v_reset)
+            h, spike, self.v = cext_neuron_forward.LIF_hard_reset_fptt(x, self.v, self.v_threshold, self.v_reset, self.tau)
+            return spike
