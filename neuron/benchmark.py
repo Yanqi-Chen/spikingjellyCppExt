@@ -51,27 +51,31 @@ def cmp_voltage():
         for t in range(T):
             lif_c(x[t])
             lif_p(x[t])
-            print((lif_c.v - lif_p.v).abs_().max().item())
-    
-        lif_ctt = wrapper.neuron.LIFNodeTT(tau=100.0)
-        lif_ctt(x)
-        print((lif_c.v - lif_ctt.v).abs_().max().item())
-        print(lif_c.v)
-        print(lif_ctt.v)
-        exit()
+            print((lif_c.v - lif_p.v).abs_().max().item())        
         lif_c.reset()
         lif_p.reset()
+
     s_c = 0
     s_p = 0
     x_c = x.clone()
     x_c.requires_grad_(True)
     x_p = x.clone()
     x_p.requires_grad_(True)
+
     for t in range(T):
-        s_c += lif_c(x_c)
-        s_p += lif_p(x_p)
+        s_c += lif_c(x_c[t])
+        s_p += lif_p(x_p[t])
     print(s_c)
     print(s_p)
+    lif_ctt = wrapper.neuron.LIFNodeTT(tau=100.0)
+    x_ctt = x.clone()
+    x_ctt.requires_grad_(True)
+    s_ctt = lif_ctt(x_ctt)
+    with torch.no_grad():
+        print(s_ctt.sum(0))
+    s_ctt.sum().backward()
+    print('CTT grad', x_ctt.grad)
+
     s_p.sum().backward()
     print('Python grad', x_p.grad)
     s_c.sum().backward()

@@ -76,6 +76,27 @@ class LIFNode(BaseNode):
             h, spike, self.v = lif_hard_forward_backward_atan.apply(x, self.v, self.v_threshold, self.v_reset, self.tau, 2.0, self.detach_reset)
             return spike
 
+class LIFMultiStep(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x_seq, v, v_threshold, v_reset, alpha, detach_reset, grad_surrogate_function_index, tau):
+        if v_reset is None:
+            raise NotImplementedError
+        h_seq, spike_seq, v_next = cext_neuron_forward.LIF_hard_reset_fptt(x_seq, v, v_threshold, v_reset, tau)
+        if x_seq.requires_grad:
+            ctx.save_for_backward(h_seq, spike_seq)
+            ctx.v_threshold = v_threshold
+            ctx.v_reset = v_reset
+            ctx.alpha = alpha
+            ctx.detach_reset = detach_reset
+            ctx.grad_surrogate_function_index = grad_surrogate_function_index
+            ctx.tau = tau
+        return h_seq, spike_seq, v_next
+
+    @staticmethod
+    def backward(ctx, grad_h_seq, grad_spike_seq, grad_v_next_seq):
+        grad_x, grad_v = cext_neuron_backward.LIF_hard_reset_bptt(grad_spike_seq, grad_v_next_seq, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.v_threshold, ctx.v_reset, ctx.alpha, ctx.detach_reset, ctx.grad_surrogate_function_index, ctx.tau)
+        return grad_x, grad_v, None, None, None, None, None, None
+
 class LIFNodeTT(LIFNode):
      def forward(self, x: torch.Tensor):
         if self.v_reset is None:
@@ -87,5 +108,5 @@ class LIFNodeTT(LIFNode):
                 self.v = torch.zeros_like(x[0].data)
                 if self.v_reset != 0.0:
                     self.v.fill_(self.v_reset)
-            h_seq, spike_seq, self.v = cext_neuron_forward.LIF_hard_reset_fptt(x, self.v, self.v_threshold, self.v_reset, self.tau)
-            return spike_seq[-1]
+            h_seq, spike_seq, self.v = LIFMultiStep.apply(x, self.v, self.v_threshold, self.v_reset, 2.0, self.detach_reset, 0, self.tau)
+            return spike_seq
