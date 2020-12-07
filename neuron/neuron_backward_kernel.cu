@@ -71,6 +71,7 @@ __global__ void PLIF_hard_reset_backward_cuda_kernel(
   const float reciprocal_tau, const float one_sub_reciprocal_tau)
 {
 const int index = blockIdx.x * blockDim.x + threadIdx.x; \
+__shared__ float sdata[1024];
 if (index < size)
 {
   const float grad_spike_to_h = grad_surrogate_function_pointer[grad_surrogate_function_index](alpha, h[index] - v_th);
@@ -78,6 +79,27 @@ if (index < size)
   grad_x[index] = grad_h * reciprocal_tau;
   grad_v[index] = grad_h * one_sub_reciprocal_tau;
   //grad_tau[0] -= grad_h * (h[index] - v[index]) * reciprocal_tau;
+  sdata[threadIdx.x] = grad_h * (h[index] - v[index]) * reciprocal_tau;
+}
+else
+{
+  sdata[threadIdx.x] = 0.0;
+}
+int threadx = blockDim.x;
+#pragma unroll
+for (int stride = threadx >> 1; stride > 0; stride = stride >> 1)
+{
+  // Synchronize all thread before next loop
+  __syncthreads();
+  if (threadIdx.x < stride)
+  {
+    sdata[threadIdx.x] += sdata[threadIdx.x + stride];
+  }
+}
+__syncthreads();
+if (threadIdx.x==0)
+{
+  grad_tau[0] = sdata[0];
 }
 }
 
