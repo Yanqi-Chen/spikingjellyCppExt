@@ -23,17 +23,6 @@ __device__ const grad_surrogate_function grad_surrogate_function_pointer[2] = {
     grad_sigmoid
     };
 
-#define HARD_RESET_CUDA_KERNEL(grad_h_to_x, grad_h_to_v) do{ \
-  const int index = blockIdx.x * blockDim.x + threadIdx.x; \
-  if (index < size) \
-  { \
-    const float grad_spike_to_h = grad_surrogate_function_pointer[grad_surrogate_function_index](alpha, h[index] - v_th); \
-    const float grad_h = grad_spike[index] * grad_spike_to_h + grad_v_next[index] * (1 - spike[index] + (v_reset - h[index]) * grad_spike_to_h * (1 - detach_reset)); \
-    grad_x[index] = grad_h * grad_h_to_x; \
-    grad_v[index] = grad_h * grad_h_to_v; \
-  } \
-}while(0) \
-
 __global__ void LIF_hard_reset_backward_cuda_kernel(
     float* __restrict__ grad_x, float* __restrict__ grad_v,
     const float* __restrict__ grad_spike, const float* __restrict__ grad_v_next,
@@ -42,7 +31,14 @@ __global__ void LIF_hard_reset_backward_cuda_kernel(
     const float alpha, const bool detach_reset, const int grad_surrogate_function_index,
     const float reciprocal_tau, const float one_sub_reciprocal_tau)
 {
-  HARD_RESET_CUDA_KERNEL(reciprocal_tau, one_sub_reciprocal_tau);
+  const int index = blockIdx.x * blockDim.x + threadIdx.x; \
+  if (index < size)
+  {
+    const float grad_spike_to_h = grad_surrogate_function_pointer[grad_surrogate_function_index](alpha, h[index] - v_th);
+    const float grad_h = grad_spike[index] * grad_spike_to_h + grad_v_next[index] * (1 - spike[index] + (v_reset - h[index]) * grad_spike_to_h * (1 - detach_reset));
+    grad_x[index] = grad_h * reciprocal_tau;
+    grad_v[index] = grad_h * one_sub_reciprocal_tau;
+  }
 }
 
 void LIF_hard_reset_backward_cuda(
@@ -53,7 +49,9 @@ void LIF_hard_reset_backward_cuda(
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index,
   const float & tau)
 {
-  INIT_DEVIDE_THREAD;
+  const int threads = 1024;
+  const int blocks = (size + threads - 1) / threads;
+  CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
   const float reciprocal_tau = 1 / tau;
   LIF_hard_reset_backward_cuda_kernel<<<blocks, threads>>>(
     grad_x, grad_v, grad_spike, grad_v_next, 
@@ -110,34 +108,14 @@ void LIF_hard_reset_bptt_cuda(
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index, 
   const float & tau)
 {
-  cudaError_t error = cudaSetDevice(gpu_id);
-  if(error != cudaSuccess)
-  {
-    printf("CUDA error: %s\n", cudaGetErrorString(error));
-    exit(-1);
-  }
+  CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
   float* grad_s_to_h = 0;
-  error = cudaMalloc((float**)&grad_s_to_h, size * sizeof(float));
-  if(error != cudaSuccess)
-  {
-    printf("CUDA error: %s\n", cudaGetErrorString(error));
-    exit(-1);
-  }
+  CHECK_CUDA_OPERATION(cudaMalloc((float**)&grad_s_to_h, size * sizeof(float)));
+  
   float* grad_v_to_h = 0;
-  error = cudaMalloc((float**)&grad_v_to_h, size * sizeof(float));
-  if(error != cudaSuccess)
-  {
-    printf("CUDA error: %s\n", cudaGetErrorString(error));
-    exit(-1);
-  }
+  CHECK_CUDA_OPERATION(cudaMalloc((float**)&grad_v_to_h, size * sizeof(float)));
   const int threads = 1024;
   const int blocks = (size + threads - 1) / threads;
-  error = cudaSetDevice(gpu_id);
-  if(error != cudaSuccess)
-  {
-    printf("CUDA error: %s\n", cudaGetErrorString(error));
-    exit(-1);
-  }
   cal_grad_s_to_h_v_to_h_cuda_kernel<<<blocks, threads>>>(
     grad_s_to_h, grad_v_to_h,
     h_seq, spike_seq, 
@@ -158,5 +136,4 @@ void LIF_hard_reset_bptt_cuda(
   );
   cudaFree(grad_s_to_h);
   cudaFree(grad_v_to_h);
-
 }

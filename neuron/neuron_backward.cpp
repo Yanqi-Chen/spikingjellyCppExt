@@ -11,7 +11,6 @@ void LIF_hard_reset_backward_cuda(
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index, 
   const float & tau);
 
-#define HARD_RESET_BACKWARD_CHECK CHECK_TENSOR(grad_spike);CHECK_TENSOR(grad_v_next);CHECK_TENSOR(h);CHECK_TENSOR(spike);auto grad_x = torch::zeros_like(h.data());auto grad_v = torch::zeros_like(h.data());CHECK_TENSOR(grad_x);CHECK_TENSOR(grad_v)
 
 std::vector<at::Tensor> LIF_hard_reset_backward(
     torch::Tensor & grad_spike, torch::Tensor & grad_v_next,
@@ -20,7 +19,14 @@ std::vector<at::Tensor> LIF_hard_reset_backward(
     const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index,
     const float & tau)
 {
-    HARD_RESET_BACKWARD_CHECK;
+    CHECK_TENSOR(grad_spike);
+    CHECK_TENSOR(grad_v_next);
+    CHECK_TENSOR(h);
+    CHECK_TENSOR(spike);
+    auto grad_x = torch::zeros_like(h.data());
+    auto grad_v = torch::zeros_like(h.data());
+    CHECK_TENSOR(grad_x);
+    CHECK_TENSOR(grad_v);
     LIF_hard_reset_backward_cuda(
         grad_x.data_ptr<float>(), grad_v.data_ptr<float>(),
         grad_spike.data_ptr<float>(), grad_v_next.data_ptr<float>(),
