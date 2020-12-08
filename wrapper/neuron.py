@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 from torch.utils import cpp_extension
 use_fast_math = True
 extra_cuda_cflags = []
@@ -110,3 +111,58 @@ class LIFNodeTT(LIFNode):
                     self.v.fill_(self.v_reset)
             h_seq, spike_seq, self.v = LIFMultiStep.apply(x, self.v, self.v_threshold, self.v_reset, 2.0, self.detach_reset, 0, self.tau)
             return spike_seq
+
+class PLIFStep(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, v, v_threshold, v_reset, alpha, detach_reset, grad_surrogate_function_index, reciprocal_tau):
+        if v_reset is None:
+            raise NotImplementedError
+        h, spike, v_next = cext_neuron_forward.LIF_hard_reset_forward(x, v, v_threshold, v_reset, 1 / reciprocal_tau)
+        if x.requires_grad:
+            ctx.save_for_backward(x, v, h, spike)
+            ctx.v_threshold = v_threshold
+            ctx.v_reset = v_reset
+            ctx.alpha = alpha
+            ctx.detach_reset = detach_reset
+            ctx.grad_surrogate_function_index = grad_surrogate_function_index
+            ctx.reciprocal_tau = reciprocal_tau
+        return h, spike, v_next
+
+    @staticmethod
+    def backward(ctx, grad_h, grad_spike, grad_v_next):
+        grad_x, grad_v, grad_tau = cext_neuron_backward.PLIF_hard_reset_backward(grad_spike, grad_v_next, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.saved_tensors[2], ctx.saved_tensors[3], ctx.v_threshold, ctx.v_reset, ctx.alpha, ctx.detach_reset, ctx.grad_surrogate_function_index, ctx.reciprocal_tau)
+        return grad_x, grad_v, None, None, None, None, None, grad_tau
+
+class PLIFNode(BaseNode):
+    def __init__(self, tau=2.0, v_threshold=1.0, v_reset=0.0, detach_reset=False):
+        super().__init__(v_threshold, v_reset, detach_reset)
+        self.w = nn.Parameter(torch.Tensor([-math.log(tau - 1)]))
+
+    def extra_repr(self):
+        return f'v_threshold={self.v_threshold}, v_reset={self.v_reset}, tau={self.tau}'
+    
+    def forward(self, x: torch.Tensor):
+        if self.v_reset is None:
+            # soft reset
+            raise NotImplementedError
+        else:
+            # hard reset
+            if not isinstance(self.v, torch.Tensor):
+                self.v = torch.zeros_like(x.data)
+                if self.v_reset != 0.0:
+                    self.v.fill_(self.v_reset)
+            h, spike, self.v = PLIFStep.apply(x, self.v, self.v_threshold, self.v_reset, 2.0, self.detach_reset, 0, self.w.sigmoid())
+            return spike
+
+from spikingjelly.clock_driven import neuron, surrogate
+class PLIFNodePy(neuron.BaseNode):
+    def __init__(self, tau=100.0, v_threshold=1.0, v_reset=0.0, surrogate_function=surrogate.Sigmoid(), detach_reset=False, monitor_state=False):
+        super().__init__(v_threshold, v_reset, surrogate_function, detach_reset, monitor_state)
+        self.w = nn.Parameter(torch.Tensor([-math.log(tau - 1)]))
+    def neuronal_charge(self, dv: torch.Tensor):
+        if self.v_reset is None:
+            raise NotImplementedError
+        else:
+            self.v += (dv - (self.v - self.v_reset)) * self.w.sigmoid()
+    
+    

@@ -38,41 +38,42 @@ std::vector<at::Tensor> LIF_hard_reset_backward(
 }
 
 void PLIF_hard_reset_backward_cuda(
-  float* grad_x, float* grad_v, float* grad_tau,
+  float* grad_x, float* grad_v, float* grad_reciprocal_tau,
   const float* grad_spike, const float* grad_v_next,
-  const float* v, const float* h, const float* spike, 
+  const float* x, const float* v, const float* h, const float* spike, 
   const float & v_th, const float & v_reset, const int & size, const int & gpu_id, 
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index, 
-  const float & tau);
+  const float & reciprocal_tau);
 
 
 std::vector<at::Tensor> PLIF_hard_reset_backward(
     torch::Tensor & grad_spike, torch::Tensor & grad_v_next,
-    torch::Tensor & v, torch::Tensor & h, torch::Tensor & spike,
+    torch::Tensor & x, torch::Tensor & v, torch::Tensor & h, torch::Tensor & spike,
     const float & v_th, const float & v_reset, 
     const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index,
-    const float & tau)
+    const float & reciprocal_tau)
 {
     CHECK_TENSOR(grad_spike);
     CHECK_TENSOR(grad_v_next);
+    CHECK_TENSOR(x);
     CHECK_TENSOR(v);
     CHECK_TENSOR(h);
     CHECK_TENSOR(spike);
     auto grad_x = torch::zeros_like(h.data());
     auto grad_v = torch::zeros_like(h.data());
-    auto grad_tau = torch::zeros({1}).to(h);
+    auto grad_reciprocal_tau = torch::zeros({1}).to(h);
     CHECK_TENSOR(grad_x);
     CHECK_TENSOR(grad_v);
-    CHECK_TENSOR(grad_tau);
+    CHECK_TENSOR(grad_reciprocal_tau);
 
     PLIF_hard_reset_backward_cuda(
-        grad_x.data_ptr<float>(), grad_v.data_ptr<float>(), grad_tau.data_ptr<float>(), 
+        grad_x.data_ptr<float>(), grad_v.data_ptr<float>(), grad_reciprocal_tau.data_ptr<float>(), 
         grad_spike.data_ptr<float>(), grad_v_next.data_ptr<float>(),
-        v.data_ptr<float>(), h.data_ptr<float>(), spike.data_ptr<float>(),
+        x.data_ptr<float>(), v.data_ptr<float>(), h.data_ptr<float>(), spike.data_ptr<float>(),
         v_th, v_reset, h.numel(), h.get_device(),
         alpha, detach_reset, grad_surrogate_function_index,
-        tau);
-    return {grad_x, grad_v};
+        reciprocal_tau);
+    return {grad_x, grad_v, grad_reciprocal_tau};
 }
 
 //bptt---------------------------------
@@ -110,6 +111,7 @@ std::vector<at::Tensor> LIF_hard_reset_bptt(
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("LIF_hard_reset_backward", &LIF_hard_reset_backward);
     m.def("LIF_hard_reset_bptt", &LIF_hard_reset_bptt);
+    m.def("PLIF_hard_reset_backward", &PLIF_hard_reset_backward);
 }
 
 
