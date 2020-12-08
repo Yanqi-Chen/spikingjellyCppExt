@@ -88,19 +88,19 @@ class MultiStepLIFNode(BaseNode):
         super().__init__(v_threshold, v_reset, surrogate_function, alpha, detach_reset)
         self.reciprocal_tau = 1 / tau
 
-    def forward(self, dv: torch.Tensor):
+    def forward(self, dv_seq: torch.Tensor):
         if self.v_reset is None:
             raise NotImplementedError
         else:
             if not isinstance(self.v, torch.Tensor):
-                self.v = torch.zeros_like(dv[0].data)
+                self.v = torch.zeros_like(dv_seq[0].data)
                 if self.v_reset != 0.0:
                     self.v.fill_(self.v_reset)
             if self.training:
-                spike_seq, self.v = LIFMultiStep.apply(dv, self.v, self.v_threshold, self.v_reset, self.alpha,
+                spike_seq, self.v = LIFMultiStep.apply(dv_seq, self.v, self.v_threshold, self.v_reset, self.alpha,
                                                        self.detach_reset, self.grad_surrogate_function_index, self.reciprocal_tau)
             else:
-                spike_seq, self.v = cext_neuron.LIF_hard_reset_fptt(dv, self.v, self.v_threshold, self.v_reset, self.alpha, self.detach_reset, self.grad_surrogate_function_index, self.reciprocal_tau)
+                spike_seq, self.v = cext_neuron.LIF_hard_reset_fptt(dv_seq, self.v, self.v_threshold, self.v_reset, self.alpha, self.detach_reset, self.grad_surrogate_function_index, self.reciprocal_tau)
             return spike_seq
 
 class ParametricLIFStep(torch.autograd.Function):
@@ -119,6 +119,23 @@ class ParametricLIFStep(torch.autograd.Function):
     def backward(ctx, grad_spike, grad_v_next):
         grad_x, grad_v, grad_rtau = cext_neuron.ParametricLIF_hard_reset_backward(grad_spike, grad_v_next, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.saved_tensors[2], ctx.reciprocal_tau)
         return grad_x, grad_v, None, None, None, None, None, grad_rtau
+
+class ParametricLIFMultiStep(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x_seq, v, v_threshold, v_reset, alpha, detach_reset, grad_surrogate_function_index, reciprocal_tau):
+        if v_reset is None:
+            raise NotImplementedError
+
+        spike_seq, v_next, grad_s_to_h, grad_v_to_h, grad_h_to_rtau = cext_neuron.ParametricLIF_hard_reset_fptt_with_grad(x_seq, v, v_threshold, v_reset, alpha, detach_reset, grad_surrogate_function_index, reciprocal_tau)
+        ctx.save_for_backward(grad_s_to_h, grad_v_to_h, grad_h_to_rtau)
+        ctx.reciprocal_tau = reciprocal_tau
+
+        return spike_seq, v_next
+
+    @staticmethod
+    def backward(ctx, grad_spike_seq, grad_v_next):
+        grad_x_seq, grad_v, grad_rtau = cext_neuron.ParametricLIF_hard_reset_bptt(grad_spike_seq, grad_v_next, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.saved_tensors[2], ctx.reciprocal_tau)
+        return grad_x_seq, grad_v, None, None, None, None, None, grad_rtau
 
 class ParametricLIFNode(BaseNode):
     def __init__(self, tau=100.0, v_threshold=1.0, v_reset=0.0, surrogate_function='ATan', alpha=2.0,
@@ -141,6 +158,23 @@ class ParametricLIFNode(BaseNode):
                 spike, self.v = cext_neuron.LIF_hard_reset_forward(dv, self.v, self.v_threshold, self.v_reset,
                                                                    self.w.sigmoid())
             return spike
+
+class MultiStepParametricLIFNode(ParametricLIFNode):
+
+    def forward(self, dv_seq: torch.Tensor):
+        if self.v_reset is None:
+            raise NotImplementedError
+        else:
+            if not isinstance(self.v, torch.Tensor):
+                self.v = torch.zeros_like(dv_seq[0].data)
+                if self.v_reset != 0.0:
+                    self.v.fill_(self.v_reset)
+            if self.training:
+                spike_seq, self.v = ParametricLIFMultiStep.apply(dv_seq, self.v, self.v_threshold, self.v_reset, self.alpha,
+                                                       self.detach_reset, self.grad_surrogate_function_index, self.w.sigmoid())
+            else:
+                spike_seq, self.v = cext_neuron.LIF_hard_reset_fptt(dv_seq, self.v, self.v_threshold, self.v_reset, self.alpha, self.detach_reset, self.grad_surrogate_function_index, self.w.sigmoid())
+            return spike_seq
 
 from spikingjelly.clock_driven import neuron, surrogate
 class PLIFNode(neuron.BaseNode):
