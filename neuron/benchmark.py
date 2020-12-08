@@ -67,12 +67,13 @@ def cmp_voltage():
         s_p += lif_p(x_p[t])
     print(s_c)
     print(s_p)
-    lif_ctt = wrapper.neuron.LIFNodeTT(tau=100.0)
+    lif_ctt = wrapper.neuron.MultiStepLIFNode(tau=100.0)
     x_ctt = x.clone()
     x_ctt.requires_grad_(True)
     s_ctt = lif_ctt(x_ctt)
     with torch.no_grad():
         print(s_ctt.sum(0))
+        print((lif_c.v - lif_ctt.v).abs_().max().item())        
     s_ctt.sum().backward()
     print('CTT grad', x_ctt.grad)
 
@@ -80,44 +81,8 @@ def cmp_voltage():
     print('Python grad', x_p.grad)
     s_c.sum().backward()
     print('CUDA grad', x_c.grad)
-
-def cmp_voltage2():
-    plif_py = wrapper.neuron.PLIFNodePy(tau=2.0, surrogate_function=sj_surrogate.ATan(alpha=2))
-    plif_cuda = wrapper.neuron.PLIFNode(tau=2.0)
-    device = 'cuda:1'
-    plif_py.to(device)
-    plif_cuda.to(device)
-    T = 100
-    neuron_num = 1024
-    x = torch.rand([T, neuron_num], device=device) * 5
     
-    with torch.no_grad():
-        for t in range(T):
-            plif_py(x[t])
-            plif_cuda(x[t])
-            print((plif_py.v - plif_cuda.v).abs_().max().item())        
-        plif_py.reset()
-        plif_cuda.reset()
-    
-    s_py = 0
-    s_c = 0
-    x_py = x.clone()
-    x_py.requires_grad_(True)
-    x_c = x.clone()
-    x_c.requires_grad_(True)
-    for t in range(T):
-        s_py += plif_py(x_py[t])
-        s_c += plif_cuda(x_c[t])
-    print(s_py)
-    print(s_c)
-    s_py.sum().backward()
-    s_c.sum().backward()
-    print(x_py.grad)
-    print(x_c.grad)
-    print(plif_py.w.grad)
-    print(plif_cuda.w.grad)
-    
-cmp_voltage2()
+cmp_voltage()
 
 
 
