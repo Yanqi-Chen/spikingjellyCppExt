@@ -47,12 +47,11 @@ void LIF_hard_reset_backward_cuda(
   const float* h, const float* spike, 
   const float & v_th, const float & v_reset, const int & size, const int & gpu_id, 
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index,
-  const float & tau)
+  const float & reciprocal_tau)
 {
   const int threads = 1024;
   const int blocks = (size + threads - 1) / threads;
   CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
-  const float reciprocal_tau = 1 / tau;
   LIF_hard_reset_backward_cuda_kernel<<<blocks, threads>>>(
     grad_x, grad_v, grad_spike, grad_v_next, 
     h, spike, 
@@ -167,7 +166,7 @@ void LIF_hard_reset_bptt_cuda(
   const float* grad_spike_seq, const float* grad_v_next, const float* h_seq, const float* spike_seq,
   const float & v_th, const float & v_reset, const int & seq_len, const int & size, const int & gpu_id, 
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index, 
-  const float & tau)
+  const float & reciprocal_tau)
 {
   CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
   float* grad_s_to_h = 0;
@@ -186,7 +185,6 @@ void LIF_hard_reset_bptt_cuda(
   cudaDeviceSynchronize();
   const int neuron_num = size / seq_len;
   const int blocks2 = (neuron_num + threads - 1) / threads;
-  const float reciprocal_tau = 1 / tau;
   LIF_hard_reset_bptt_cuda_kernel<<<blocks2, threads>>>(
     grad_x_seq, grad_v,
     grad_spike_seq, grad_v_next, h_seq, spike_seq, 

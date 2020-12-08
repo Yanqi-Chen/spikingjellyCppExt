@@ -19,7 +19,7 @@ cext_neuron_backward = cpp_extension.load(name='neuron_backward', sources=['./ne
 class lif_hard_forward_backward_atan(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, v, v_threshold, v_reset, tau, alpha, detach_reset):
-        h, spike, v_next = cext_neuron_forward.LIF_hard_reset_forward(x, v, v_threshold, v_reset, tau)
+        h, spike, v_next = cext_neuron_forward.LIF_hard_reset_forward(x, v, v_threshold, v_reset, 1 / tau)
         if x.requires_grad:
             ctx.save_for_backward(h, spike)
             ctx.v_threshold = v_threshold
@@ -31,7 +31,7 @@ class lif_hard_forward_backward_atan(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_h, grad_spike, grad_v_next):
-        grad_x, grad_v = cext_neuron_backward.LIF_hard_reset_backward(grad_spike, grad_v_next, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.v_threshold, ctx.v_reset, ctx.alpha, ctx.detach_reset, 0, ctx.tau)
+        grad_x, grad_v = cext_neuron_backward.LIF_hard_reset_backward(grad_spike, grad_v_next, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.v_threshold, ctx.v_reset, ctx.alpha, ctx.detach_reset, 0, 1 / ctx.tau)
         return grad_x, grad_v, None, None, None, None, None
 
 
@@ -82,7 +82,7 @@ class LIFMultiStep(torch.autograd.Function):
     def forward(ctx, x_seq, v, v_threshold, v_reset, alpha, detach_reset, grad_surrogate_function_index, tau):
         if v_reset is None:
             raise NotImplementedError
-        h_seq, spike_seq, v_next = cext_neuron_forward.LIF_hard_reset_fptt(x_seq, v, v_threshold, v_reset, tau)
+        h_seq, spike_seq, v_next = cext_neuron_forward.LIF_hard_reset_fptt(x_seq, v, v_threshold, v_reset, 1 / tau)
         if x_seq.requires_grad:
             ctx.save_for_backward(h_seq, spike_seq)
             ctx.v_threshold = v_threshold
@@ -95,7 +95,7 @@ class LIFMultiStep(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_h_seq, grad_spike_seq, grad_v_next_seq):
-        grad_x, grad_v = cext_neuron_backward.LIF_hard_reset_bptt(grad_spike_seq, grad_v_next_seq, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.v_threshold, ctx.v_reset, ctx.alpha, ctx.detach_reset, ctx.grad_surrogate_function_index, ctx.tau)
+        grad_x, grad_v = cext_neuron_backward.LIF_hard_reset_bptt(grad_spike_seq, grad_v_next_seq, ctx.saved_tensors[0], ctx.saved_tensors[1], ctx.v_threshold, ctx.v_reset, ctx.alpha, ctx.detach_reset, ctx.grad_surrogate_function_index, 1 / ctx.tau)
         return grad_x, grad_v, None, None, None, None, None, None
 
 class LIFNodeTT(LIFNode):
@@ -117,7 +117,7 @@ class PLIFStep(torch.autograd.Function):
     def forward(ctx, x, v, v_threshold, v_reset, alpha, detach_reset, grad_surrogate_function_index, reciprocal_tau):
         if v_reset is None:
             raise NotImplementedError
-        h, spike, v_next = cext_neuron_forward.LIF_hard_reset_forward(x, v, v_threshold, v_reset, 1 / reciprocal_tau)
+        h, spike, v_next = cext_neuron_forward.LIF_hard_reset_forward(x, v, v_threshold, v_reset, reciprocal_tau)
         if x.requires_grad:
             ctx.save_for_backward(x, v, h, spike)
             ctx.v_threshold = v_threshold
