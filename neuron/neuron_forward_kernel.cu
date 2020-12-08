@@ -99,6 +99,52 @@ void LIF_hard_reset_forward_with_grad_cuda(
     reciprocal_tau);
 }
 
+
+__global__ void ParametricLIF_hard_reset_forward_with_grad_cuda_kernel(
+  const float* __restrict__ x, const float* __restrict__ v, float* __restrict__ spike, float* __restrict__ v_next,
+  float* __restrict__ grad_s_to_h, float* __restrict__ grad_v_to_h, float* __restrict__ grad_h_to_rtau,
+  const float v_th, const float v_reset, const int size,
+  const float alpha, const bool detach_reset, const int grad_surrogate_function_index,
+  const float reciprocal_tau)
+{
+  const int index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (index < size)
+  {
+    grad_h_to_rtau[index] = x[index] - v[index] + v_reset;
+    const float h = v[index] + reciprocal_tau * grad_h_to_rtau[index];
+    if (h >= v_th)
+    {
+      spike[index] = 1.0f;
+      v_next[index] = v_reset;
+    }
+    else
+    {
+      spike[index] = 0.0f;
+      v_next[index] = h;
+    }
+    grad_s_to_h[index] = grad_surrogate_function_pointer[grad_surrogate_function_index](alpha, h - v_th);
+    grad_v_to_h[index] = 1 - spike[index] + (v_reset - h) * grad_s_to_h[index] * (1 - detach_reset);
+  }
+}
+
+void ParametricLIF_hard_reset_forward_with_grad_cuda(
+  const float* x, const float* v, float* spike, float* v_next,
+  float* grad_s_to_h, float* grad_v_to_h, float* grad_h_to_rtau,
+  const float & v_th, const float & v_reset, const int & size, const int & gpu_id,
+  const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index,
+  const float & reciprocal_tau)
+  {
+    const int threads = THREADS;
+    const int blocks = (size + threads - 1) / threads;
+    CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
+    ParametricLIF_hard_reset_forward_with_grad_cuda_kernel<<<blocks, threads>>>(
+      x, v, spike, v_next, 
+      grad_s_to_h, grad_v_to_h, grad_h_to_rtau,
+      v_th, v_reset, size, 
+      alpha, detach_reset, grad_surrogate_function_index,
+      reciprocal_tau);
+  }
+
 //fptt-------------------------------
 __global__ void LIF_hard_reset_fptt_cuda_kernel(
   const float* __restrict__ x_seq, float* __restrict__ spike_seq, float* __restrict__ v_next, 

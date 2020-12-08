@@ -82,9 +82,43 @@ def cmp_voltage():
     s_c.sum().backward()
     print('CUDA grad', x_c.grad)
     
-cmp_voltage()
+def cmp_voltage2():
+    lif_c = wrapper.neuron.ParametricLIFNode(tau=100.0)
+    lif_p = wrapper.neuron.PLIFNode(tau=100.0)
+    print(lif_c, lif_p)
+    device = 'cuda:1'
+    lif_c.to(device)
+    lif_p.to(device)
+    T = 100
+    neuron_num = 1024
+    x = torch.rand([T, neuron_num], device=device) * 5
+    
+    with torch.no_grad():
+        for t in range(T):
+            lif_c(x[t])
+            lif_p(x[t])
+            print((lif_c.v - lif_p.v).abs_().max().item())        
+        lif_c.reset()
+        lif_p.reset()
+
+    s_c = 0
+    s_p = 0
+    x_c = x.clone()
+    x_c.requires_grad_(True)
+    x_p = x.clone()
+    x_p.requires_grad_(True)
+
+    for t in range(T):
+        s_c += lif_c(x_c[t])
+        s_p += lif_p(x_p[t])
+    print(s_c)
+    print(s_p)
+    s_p.sum().backward()
+    print('Python grad', x_p.grad, lif_p.w.grad)
+    s_c.sum().backward()
+    print('CUDA grad', x_c.grad, lif_c.w.grad)
 
 
-
+cmp_voltage2()
 
 
