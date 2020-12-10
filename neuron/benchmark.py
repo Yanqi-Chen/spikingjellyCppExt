@@ -83,7 +83,52 @@ def cmp_voltage():
     print('CUDA grad', x_c.grad)
     
 
+def cmp_voltage2():
+    if_c = wrapper.neuron.IFNode()
+    if_p = sj_neuron.IFNode(surrogate_function=sj_surrogate.ATan(alpha=2))
+    print(if_c, if_p)
+    device = 'cuda:1'
+    if_c.to(device)
+    if_p.to(device)
+    T = 100
+    neuron_num = 1024
+    x = torch.rand([T, neuron_num], device=device) * 2
+    
+    with torch.no_grad():
+        for t in range(T):
+            if_c(x[t])
+            if_p(x[t])
+            print((if_c.v - if_p.v).abs_().max().item())        
+        if_c.reset()
+        if_p.reset()
 
-cmp_voltage()
+    s_c = 0
+    s_p = 0
+    x_c = x.clone()
+    x_c.requires_grad_(True)
+    x_p = x.clone()
+    x_p.requires_grad_(True)
+
+    for t in range(T):
+        s_c += if_c(x_c[t])
+        s_p += if_p(x_p[t])
+    print(s_c)
+    print(s_p)
+    if_ctt = wrapper.neuron.MultiStepIFNode()
+    x_ctt = x.clone()
+    x_ctt.requires_grad_(True)
+    s_ctt = if_ctt(x_ctt)
+    with torch.no_grad():
+        print(s_ctt.sum(0))
+        print((if_c.v - if_ctt.v).abs_().max().item())        
+    s_ctt.sum().backward()
+    print('CTT grad', x_ctt.grad)
+
+    s_p.sum().backward()
+    print('Python grad', x_p.grad)
+    s_c.sum().backward()
+    print('CUDA grad', x_c.grad)
+
+cmp_voltage2()
 
 
