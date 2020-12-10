@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "neuron_def.h"
 
-__global__ void LIF_hard_reset_backward_cuda_kernel(
+__global__ void LIF_backward_cuda_kernel(
     float* __restrict__ grad_x, float* __restrict__ grad_v,
     const float* __restrict__ grad_spike, const float* __restrict__ grad_v_next, const float* __restrict__ grad_s_to_h, const float* __restrict__ grad_v_to_h,
     const int size,
@@ -19,7 +19,7 @@ __global__ void LIF_hard_reset_backward_cuda_kernel(
   }
 }
 
-void LIF_hard_reset_backward_cuda(
+void LIF_backward_cuda(
   float* grad_x, float* grad_v,
   const float* grad_spike, const float* grad_v_next, const float* grad_s_to_h, const float* grad_v_to_h,
   const int & size, const int & gpu_id, 
@@ -28,7 +28,7 @@ void LIF_hard_reset_backward_cuda(
   const int threads = THREADS;
   const int blocks = (size + threads - 1) / threads;
   CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
-  LIF_hard_reset_backward_cuda_kernel<<<blocks, threads>>>(
+  LIF_backward_cuda_kernel<<<blocks, threads>>>(
     grad_x, grad_v, grad_spike, grad_v_next, grad_s_to_h, grad_v_to_h,
     size, 
     reciprocal_tau, 1 - reciprocal_tau
@@ -38,7 +38,7 @@ void LIF_hard_reset_backward_cuda(
 
 //bptt-----------------------------------------
 
-__global__ void LIF_hard_reset_bptt_cuda_kernel(
+__global__ void LIF_bptt_cuda_kernel(
   float* __restrict__ grad_x_seq, float* __restrict__ grad_v,
   const float* __restrict__ grad_spike_seq, const float* __restrict__ grad_s_to_h, const float* __restrict__ grad_v_to_h,
   const int neuron_num, const int size,
@@ -58,7 +58,7 @@ __global__ void LIF_hard_reset_bptt_cuda_kernel(
   }
 }
 
-void LIF_hard_reset_bptt_cuda(
+void LIF_bptt_cuda(
   float* grad_x_seq, float* grad_v, 
   const float* grad_spike_seq, const float* grad_s_to_h, const float* grad_v_to_h,
   const int & seq_len, const int & size, const int & gpu_id, 
@@ -68,7 +68,7 @@ void LIF_hard_reset_bptt_cuda(
   const int threads = THREADS;
   const int neuron_num = size / seq_len;
   const int blocks = (neuron_num + threads - 1) / threads;
-  LIF_hard_reset_bptt_cuda_kernel<<<blocks, threads>>>(
+  LIF_bptt_cuda_kernel<<<blocks, threads>>>(
     grad_x_seq, grad_v,
     grad_spike_seq, grad_s_to_h, grad_v_to_h, 
     neuron_num, size,
