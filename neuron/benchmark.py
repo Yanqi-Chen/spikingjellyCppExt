@@ -129,6 +129,6 @@ def cmp_voltage2():
     s_c.sum().backward()
     print('CUDA grad', x_c.grad)
 
-cmp_voltage2()
+cmp_voltage()
 
 

@@ -1,5 +1,6 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <torch/extension.h>
 #include <math.h>
 #include <stdio.h>
 #include "neuron_def.h"
@@ -45,14 +46,23 @@ __global__ void LIF_hard_reset_forward_cuda_kernel(
   }
 }
 
-void LIF_hard_reset_forward_cuda(const float* x, const float* v, float* spike, float* v_next, 
-  const float & v_th, const float & v_reset, const int & size, const int & gpu_id, 
+std::vector<at::Tensor> LIF_hard_reset_forward(torch::Tensor & x, torch::Tensor & v, const float & v_th, const float & v_reset, 
   const float & reciprocal_tau)
-{
+{   
+  CHECK_TENSOR(x);
+  CHECK_TENSOR(v);
+  auto spike = torch::zeros_like(v.data());
+  auto v_next = torch::zeros_like(v.data());
+  CHECK_TENSOR(spike);
+  CHECK_TENSOR(v_next);
+  const int size = x.numel();
   const int threads = THREADS;
   const int blocks = (size + threads - 1) / threads;
-  CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
-  LIF_hard_reset_forward_cuda_kernel<<<blocks, threads>>>(x, v, spike, v_next, v_th, v_reset, size, reciprocal_tau);
+  CHECK_CUDA_OPERATION(cudaSetDevice(x.get_device()));
+  LIF_hard_reset_forward_cuda_kernel<<<blocks, threads>>>(
+    x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), 
+    v_th, v_reset, size, reciprocal_tau);
+  return {spike, v_next};
 }
 
 __global__ void LIF_hard_reset_forward_with_grad_cuda_kernel(
@@ -81,22 +91,33 @@ __global__ void LIF_hard_reset_forward_with_grad_cuda_kernel(
   }
 }
 
-void LIF_hard_reset_forward_with_grad_cuda(
-  const float* x, const float* v, float* spike, float* v_next,
-  float* grad_s_to_h, float* grad_v_to_h,
-  const float & v_th, const float & v_reset, const int & size, const int & gpu_id,
+std::vector<at::Tensor> LIF_hard_reset_forward_with_grad(torch::Tensor & x, torch::Tensor & v, const float & v_th, const float & v_reset,
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index,
   const float & reciprocal_tau)
-{
+{   
+  CHECK_TENSOR(x);
+  CHECK_TENSOR(v);
+
+  auto spike = torch::zeros_like(v.data());
+  auto v_next = spike.data().clone();
+  auto grad_s_to_h = spike.data().clone();
+  auto grad_v_to_h = spike.data().clone();
+
+  CHECK_TENSOR(spike);
+  CHECK_TENSOR(v_next);
+  CHECK_TENSOR(grad_s_to_h);
+  CHECK_TENSOR(grad_v_to_h);
+  const int size = x.numel();
   const int threads = THREADS;
   const int blocks = (size + threads - 1) / threads;
-  CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
+  CHECK_CUDA_OPERATION(cudaSetDevice(x.get_device()));
   LIF_hard_reset_forward_with_grad_cuda_kernel<<<blocks, threads>>>(
-    x, v, spike, v_next, 
-    grad_s_to_h, grad_v_to_h, 
+    x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), 
+    grad_s_to_h.data_ptr<float>(), grad_v_to_h.data_ptr<float>(), 
     v_th, v_reset, size, 
     alpha, detach_reset, grad_surrogate_function_index,
     reciprocal_tau);
+  return {spike, v_next, grad_s_to_h, grad_v_to_h};
 }
 
 //IF hard reset----------------------------------------------------
@@ -121,13 +142,22 @@ if (index < size)
 }
 }
 
-void IF_hard_reset_forward_cuda(const float* x, const float* v, float* spike, float* v_next, 
-const float & v_th, const float & v_reset, const int & size, const int & gpu_id)
-{
-const int threads = THREADS;
-const int blocks = (size + threads - 1) / threads;
-CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
-IF_hard_reset_forward_cuda_kernel<<<blocks, threads>>>(x, v, spike, v_next, v_th, v_reset, size);
+std::vector<at::Tensor> IF_hard_reset_forward(torch::Tensor & x, torch::Tensor & v, const float & v_th, const float & v_reset)
+{   
+    CHECK_TENSOR(x);
+    CHECK_TENSOR(v);
+    auto spike = torch::zeros_like(v.data());
+    auto v_next = torch::zeros_like(v.data());
+    CHECK_TENSOR(spike);
+    CHECK_TENSOR(v_next);
+    const int size = x.numel();
+    const int threads = THREADS;
+    const int blocks = (size + threads - 1) / threads;
+    CHECK_CUDA_OPERATION(cudaSetDevice(x.get_device()));
+    IF_hard_reset_forward_cuda_kernel<<<blocks, threads>>>(
+      x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(),
+      v_th, v_reset, size);
+    return {spike, v_next};
 }
 
 __global__ void IF_hard_reset_forward_with_grad_cuda_kernel(
@@ -155,20 +185,32 @@ if (index < size)
 }
 }
 
-void IF_hard_reset_forward_with_grad_cuda(
-const float* x, const float* v, float* spike, float* v_next,
-float* grad_s_to_h, float* grad_v_to_h,
-const float & v_th, const float & v_reset, const int & size, const int & gpu_id,
-const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index)
-{
-const int threads = THREADS;
-const int blocks = (size + threads - 1) / threads;
-CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
-IF_hard_reset_forward_with_grad_cuda_kernel<<<blocks, threads>>>(
-  x, v, spike, v_next, 
-  grad_s_to_h, grad_v_to_h, 
-  v_th, v_reset, size, 
-  alpha, detach_reset, grad_surrogate_function_index);
+std::vector<at::Tensor> IF_hard_reset_forward_with_grad(torch::Tensor & x, torch::Tensor & v, const float & v_th, const float & v_reset,
+  const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index)
+{   
+  CHECK_TENSOR(x);
+  CHECK_TENSOR(v);
+
+  auto spike = torch::zeros_like(v.data());
+  auto v_next = spike.data().clone();
+  auto grad_s_to_h = spike.data().clone();
+  auto grad_v_to_h = spike.data().clone();
+
+  CHECK_TENSOR(spike);
+  CHECK_TENSOR(v_next);
+  CHECK_TENSOR(grad_s_to_h);
+  CHECK_TENSOR(grad_v_to_h);
+  const int size = x.numel();
+  const int threads = THREADS;
+  const int blocks = (size + threads - 1) / threads;
+  CHECK_CUDA_OPERATION(cudaSetDevice(x.get_device()));
+
+  IF_hard_reset_forward_with_grad_cuda_kernel<<<blocks, threads>>>(
+    x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), 
+    grad_s_to_h.data_ptr<float>(), grad_v_to_h.data_ptr<float>(), 
+    v_th, v_reset, size, 
+    alpha, detach_reset, grad_surrogate_function_index);
+  return {spike, v_next, grad_s_to_h, grad_v_to_h};
 }
 
 //LIF hard reset fptt----------------------------------------------------
@@ -199,15 +241,25 @@ __global__ void LIF_hard_reset_fptt_cuda_kernel(
   }
 }
 
-void LIF_hard_reset_fptt_cuda(const float* x_seq, float* spike_seq, float* v_next, 
-  const float & v_th, const float & v_reset, const int & seq_len, const int & size, const int & gpu_id, 
+std::vector<at::Tensor> LIF_hard_reset_fptt(torch::Tensor & x_seq, torch::Tensor & v, const float & v_th, const float & v_reset, 
   const float & reciprocal_tau)
 {
+  CHECK_TENSOR(x_seq);
+  CHECK_TENSOR(v);
+  auto spike_seq = torch::zeros_like(x_seq.data());
+  auto v_next = v.data().clone();
+  CHECK_TENSOR(spike_seq);
+  CHECK_TENSOR(v_next);
+  const int seq_len = x_seq.size(0);
+  const int size = x_seq.numel();
   const int threads = THREADS;
   const int neuron_num = size / seq_len;
   const int blocks = (neuron_num + threads - 1) / threads;
-  CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
-  LIF_hard_reset_fptt_cuda_kernel<<<blocks, threads>>>(x_seq, spike_seq, v_next, v_th, v_reset, neuron_num, size, reciprocal_tau);
+  CHECK_CUDA_OPERATION(cudaSetDevice(x_seq.get_device()));
+  LIF_hard_reset_fptt_cuda_kernel<<<blocks, threads>>>(
+    x_seq.data_ptr<float>(), spike_seq.data_ptr<float>(), v_next.data_ptr<float>(),
+    v_th, v_reset, neuron_num, size, reciprocal_tau);
+  return {spike_seq, v_next};
 }
 
 __global__ void LIF_hard_reset_fptt_with_grad_cuda_kernel(
@@ -240,22 +292,32 @@ __global__ void LIF_hard_reset_fptt_with_grad_cuda_kernel(
   }
 }
 
-void LIF_hard_reset_fptt_with_grad_cuda(
-  const float* x_seq, float* spike_seq, float* v_next, float* grad_s_to_h, float* grad_v_to_h,
-  const float & v_th, const float & v_reset, 
-  const int & seq_len, const int & size, const int & gpu_id, 
+std::vector<at::Tensor> LIF_hard_reset_fptt_with_grad(torch::Tensor & x_seq, torch::Tensor & v, const float & v_th, const float & v_reset, 
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index,
   const float & reciprocal_tau)
 {
+  CHECK_TENSOR(x_seq);
+  CHECK_TENSOR(v);
+  auto spike_seq = torch::zeros_like(x_seq.data());
+  auto v_next = v.data().clone();
+  auto grad_s_to_h = spike_seq.data().clone();
+  auto grad_v_to_h = spike_seq.data().clone();
+  CHECK_TENSOR(spike_seq);
+  CHECK_TENSOR(v_next);
+  CHECK_TENSOR(grad_s_to_h);
+  CHECK_TENSOR(grad_v_to_h);
+  const int seq_len = x_seq.size(0);
+  const int size = x_seq.numel();
   const int threads = THREADS;
   const int neuron_num = size / seq_len;
   const int blocks = (neuron_num + threads - 1) / threads;
-  CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
+  CHECK_CUDA_OPERATION(cudaSetDevice(x_seq.get_device()));
   LIF_hard_reset_fptt_with_grad_cuda_kernel<<<blocks, threads>>>(
-    x_seq, spike_seq, v_next, grad_s_to_h, grad_v_to_h,
+    x_seq.data_ptr<float>(), spike_seq.data_ptr<float>(), v_next.data_ptr<float>(), grad_s_to_h.data_ptr<float>(), grad_v_to_h.data_ptr<float>(),
     v_th, v_reset, neuron_num, size, 
     alpha, detach_reset, grad_surrogate_function_index,
     reciprocal_tau);
+  return {spike_seq, v_next, grad_s_to_h, grad_v_to_h};
 }
 //IF hard reset fptt----------------------------------------------------
 __global__ void IF_hard_reset_fptt_cuda_kernel(
@@ -284,14 +346,24 @@ __global__ void IF_hard_reset_fptt_cuda_kernel(
   }
 }
 
-void IF_hard_reset_fptt_cuda(const float* x_seq, float* spike_seq, float* v_next, 
-  const float & v_th, const float & v_reset, const int & seq_len, const int & size, const int & gpu_id)
+std::vector<at::Tensor> IF_hard_reset_fptt(torch::Tensor & x_seq, torch::Tensor & v, const float & v_th, const float & v_reset)
 {
-  const int threads = THREADS;
-  const int neuron_num = size / seq_len;
-  const int blocks = (neuron_num + threads - 1) / threads;
-  CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
-  IF_hard_reset_fptt_cuda_kernel<<<blocks, threads>>>(x_seq, spike_seq, v_next, v_th, v_reset, neuron_num, size);
+    CHECK_TENSOR(x_seq);
+    CHECK_TENSOR(v);
+    auto spike_seq = torch::zeros_like(x_seq.data());
+    auto v_next = v.data().clone();
+    CHECK_TENSOR(spike_seq);
+    CHECK_TENSOR(v_next);
+    const int seq_len = x_seq.size(0);
+    const int size = x_seq.numel();
+    const int threads = THREADS;
+    const int neuron_num = size / seq_len;
+    const int blocks = (neuron_num + threads - 1) / threads;
+    CHECK_CUDA_OPERATION(cudaSetDevice(x_seq.get_device()));
+    IF_hard_reset_fptt_cuda_kernel<<<blocks, threads>>>(
+      x_seq.data_ptr<float>(), spike_seq.data_ptr<float>(), v_next.data_ptr<float>(),
+      v_th, v_reset, neuron_num, size);
+    return {spike_seq, v_next};
 }
 
 __global__ void IF_hard_reset_fptt_with_grad_cuda_kernel(
@@ -323,18 +395,28 @@ __global__ void IF_hard_reset_fptt_with_grad_cuda_kernel(
   }
 }
 
-void IF_hard_reset_fptt_with_grad_cuda(
-  const float* x_seq, float* spike_seq, float* v_next, float* grad_s_to_h, float* grad_v_to_h,
-  const float & v_th, const float & v_reset, 
-  const int & seq_len, const int & size, const int & gpu_id, 
+std::vector<at::Tensor> IF_hard_reset_fptt_with_grad(torch::Tensor & x_seq, torch::Tensor & v, const float & v_th, const float & v_reset, 
   const float & alpha, const bool & detach_reset, const int & grad_surrogate_function_index)
 {
+  CHECK_TENSOR(x_seq);
+  CHECK_TENSOR(v);
+  auto spike_seq = torch::zeros_like(x_seq.data());
+  auto v_next = v.data().clone();
+  auto grad_s_to_h = spike_seq.data().clone();
+  auto grad_v_to_h = spike_seq.data().clone();
+  CHECK_TENSOR(spike_seq);
+  CHECK_TENSOR(v_next);
+  CHECK_TENSOR(grad_s_to_h);
+  CHECK_TENSOR(grad_v_to_h);
+  const int seq_len = x_seq.size(0);
+  const int size = x_seq.numel();
   const int threads = THREADS;
   const int neuron_num = size / seq_len;
   const int blocks = (neuron_num + threads - 1) / threads;
-  CHECK_CUDA_OPERATION(cudaSetDevice(gpu_id));
+  CHECK_CUDA_OPERATION(cudaSetDevice(x_seq.get_device()));
   IF_hard_reset_fptt_with_grad_cuda_kernel<<<blocks, threads>>>(
-    x_seq, spike_seq, v_next, grad_s_to_h, grad_v_to_h,
+    x_seq.data_ptr<float>(), spike_seq.data_ptr<float>(), v_next.data_ptr<float>(), grad_s_to_h.data_ptr<float>(), grad_v_to_h.data_ptr<float>(),
     v_th, v_reset, neuron_num, size, 
     alpha, detach_reset, grad_surrogate_function_index);
+  return {spike_seq, v_next, grad_s_to_h, grad_v_to_h};
 }
