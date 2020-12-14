@@ -3,6 +3,7 @@
 #include <torch/extension.h>
 #include <math.h>
 #include <stdio.h>
+#include <cuda_fp16.h>
 #include "neuron_def.h"
 __forceinline__  __device__ float grad_atan(const float & alpha, const float & x)
 {
@@ -21,6 +22,25 @@ typedef float (*grad_surrogate_function) (const float &, const float &);
 __device__ const grad_surrogate_function grad_surrogate_function_pointer[2] = { 
     grad_atan, 
     grad_sigmoid
+    };
+
+__forceinline__  __device__ half grad_atan_half(const half & alpha, const half & x)
+{
+  const half M_PI_2__alpha__x = __hmul(__hmul(__double2half(M_PI_2), alpha), x);
+  return __hdiv(__hdiv(alpha, __float2half(2.0f)), __hfma(M_PI_2__alpha__x, M_PI_2__alpha__x, __float2half(1.0f)));
+}
+
+__forceinline__  __device__ half grad_sigmoid_half(const half & alpha, const half & x)
+{
+  const half sigmoid_ax = __hdiv(__float2half(1.0f), __hadd(hexp(__hneg(__hmul(alpha, x))), __float2half(1.0f)));
+  return __hmul(__hmul(__hsub(__float2half(1.0f), sigmoid_ax), sigmoid_ax), alpha);
+}
+
+typedef half (*grad_surrogate_function_half) (const half &, const half &);
+
+__device__ const grad_surrogate_function_half grad_surrogate_function_pointer_half[2] = { 
+    grad_atan_half, 
+    grad_sigmoid_half
     };
 
 //LIF hard reset----------------------------------------------------
@@ -111,13 +131,17 @@ std::vector<at::Tensor> LIF_hard_reset_forward_with_grad(torch::Tensor & x, torc
   const int threads = THREADS;
   const int blocks = (size + threads - 1) / threads;
   CHECK_CUDA_OPERATION(cudaSetDevice(x.get_device()));
-  LIF_hard_reset_forward_with_grad_cuda_kernel<<<blocks, threads>>>(
-    x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), 
-    grad_s_to_h.data_ptr<float>(), grad_v_to_h.data_ptr<float>(), 
-    v_th, v_reset, size, 
-    alpha, detach_reset, grad_surrogate_function_index,
-    reciprocal_tau);
+  if (x.scalar_type() == c10::ScalarType::Float)
+  {
+    LIF_hard_reset_forward_with_grad_cuda_kernel<<<blocks, threads>>>(
+      x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), 
+      grad_s_to_h.data_ptr<float>(), grad_v_to_h.data_ptr<float>(), 
+      v_th, v_reset, size, 
+      alpha, detach_reset, grad_surrogate_function_index,
+      reciprocal_tau);
+  }
   return {spike, v_next, grad_s_to_h, grad_v_to_h};
+
 }
 
 //IF hard reset----------------------------------------------------
