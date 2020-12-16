@@ -1,9 +1,9 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
 #include <torch/extension.h>
 #include <math.h>
 #include <stdio.h>
-#include <cuda_fp16.h>
 #include "neuron_def.h"
 __forceinline__  __device__ float grad_atan(const float & alpha, const float & x)
 {
@@ -75,7 +75,7 @@ __global__ void LIF_hard_reset_forward_cuda_kernel_half(
 const int index = blockIdx.x * blockDim.x + threadIdx.x;
 if (index < size)
 {
-  const float h = __hfma(reciprocal_tau, __hadd(__hsub(x[index], v[index]), v_reset), v[index]);
+  const half h = __hfma(reciprocal_tau, __hadd(__hsub(x[index], v[index]), v_reset), v[index]);
   if (__hgeu(h, v_th))
   {
     spike[index] = __float2half(1.0f);
@@ -102,13 +102,13 @@ std::vector<at::Tensor> LIF_hard_reset_forward(torch::Tensor & x, torch::Tensor 
   const int threads = THREADS;
   const int blocks = (size + threads - 1) / threads;
   CHECK_CUDA_OPERATION(cudaSetDevice(x.get_device()));
-  if (x.scalar_type() == c10::ScalarType::Float)
+  if (x.scalar_type() == c10::ScalarType::Float)
   {
     LIF_hard_reset_forward_cuda_kernel<<<blocks, threads>>>(
       x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), 
       v_th, v_reset, size, reciprocal_tau);
   }
-  else if (x.scalar_type() == c10::ScalarType::Half)
+  else if (x.scalar_type() == c10::ScalarType::Half)
   {
     LIF_hard_reset_forward_cuda_kernel_half<<<blocks, threads>>>(
       x.data_ptr<at::Half>(), v.data_ptr<at::Half>(), spike.data_ptr<at::Half>(), v_next.data_ptr<at::Half>(), 
@@ -153,7 +153,7 @@ __global__ void LIF_hard_reset_forward_with_grad_cuda_kernel_half(
   const int index = blockIdx.x * blockDim.x + threadIdx.x;
   if (index < size)
   {
-    const float h = __hfma(reciprocal_tau, __hadd(__hsub(x[index], v[index]), v_reset), v[index]);
+    const half h = __hfma(reciprocal_tau, __hadd(__hsub(x[index], v[index]), v_reset), v[index]);
     if (__hgeu(h, v_th))
     {
       spike[index] = __float2half(1.0f);
@@ -240,7 +240,7 @@ __global__ void IF_hard_reset_forward_cuda_kernel_half(
 const int index = blockIdx.x * blockDim.x + threadIdx.x;
 if (index < size)
 {
-  const half h = __hadd(v[index], x[index]);
+  const half h = __hadd((half) v[index], (half) x[index]);
   if (__hgeu(h, v_th))
   {
     spike[index] = __float2half(1.0f);
@@ -266,13 +266,13 @@ std::vector<at::Tensor> IF_hard_reset_forward(torch::Tensor & x, torch::Tensor &
     const int threads = THREADS;
     const int blocks = (size + threads - 1) / threads;
     CHECK_CUDA_OPERATION(cudaSetDevice(x.get_device()));
-    if (x.scalar_type() == c10::ScalarType::Float)
+    if (x.scalar_type() == c10::ScalarType::Float)
     {
       IF_hard_reset_forward_cuda_kernel<<<blocks, threads>>>(
         x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(),
         v_th, v_reset, size);
     }
-    else if (x.scalar_type() == c10::ScalarType::Half)
+    else if (x.scalar_type() == c10::ScalarType::Half)
     {
       IF_hard_reset_forward_cuda_kernel_half<<<blocks, threads>>>(
         x.data_ptr<at::Half>(), v.data_ptr<at::Half>(), spike.data_ptr<at::Half>(), v_next.data_ptr<at::Half>(),
@@ -316,7 +316,7 @@ __global__ void IF_hard_reset_forward_with_grad_cuda_kernel_half(
   const int index = blockIdx.x * blockDim.x + threadIdx.x;
   if (index < size)
   {
-    const half h = __hadd(v[index], x[index]);
+    const half h = __hadd((half) v[index], (half) x[index]);
     if (__hgeu(h, v_th))
     {
       spike[index] = __float2half(1.0f);
@@ -327,8 +327,8 @@ __global__ void IF_hard_reset_forward_with_grad_cuda_kernel_half(
       spike[index] = __float2half(0.0f);
       v_next[index] = h;
     }
-    grad_s_to_h[index] = grad_surrogate_function_pointer[grad_surrogate_function_index](alpha, __hsub(h, v_th));
-    grad_v_to_h[index] = __hfma(__hmul(__hsub(v_reset, h), grad_s_to_h[index]), __float2half(1.0f - (float) detach_reset), __hsub(1.0f, spike[index]));
+    grad_s_to_h[index] = grad_surrogate_function_pointer_half[grad_surrogate_function_index](alpha, __hsub(h, v_th));
+    grad_v_to_h[index] = __hfma(__hmul(__hsub(v_reset, h), grad_s_to_h[index]), __float2half(1.0f - (float) detach_reset), __hsub(__float2half(1.0f), spike[index]));
   }
 }
 
@@ -351,7 +351,7 @@ std::vector<at::Tensor> IF_hard_reset_forward_with_grad(torch::Tensor & x, torch
   const int threads = THREADS;
   const int blocks = (size + threads - 1) / threads;
   CHECK_CUDA_OPERATION(cudaSetDevice(x.get_device()));
-  if (x.scalar_type() == c10::ScalarType::Float)
+  if (x.scalar_type() == c10::ScalarType::Float)
   {
     IF_hard_reset_forward_with_grad_cuda_kernel<<<blocks, threads>>>(
       x.data_ptr<float>(), v.data_ptr<float>(), spike.data_ptr<float>(), v_next.data_ptr<float>(), 
@@ -359,7 +359,7 @@ std::vector<at::Tensor> IF_hard_reset_forward_with_grad(torch::Tensor & x, torch
       v_th, v_reset, size, 
       alpha, detach_reset, grad_surrogate_function_index);
   }
-  else if (x.scalar_type() == c10::ScalarType::Half)
+  else if (x.scalar_type() == c10::ScalarType::Half)
   {
     IF_hard_reset_forward_with_grad_cuda_kernel_half<<<blocks, threads>>>(
       x.data_ptr<at::Half>(), v.data_ptr<at::Half>(), spike.data_ptr<at::Half>(), v_next.data_ptr<at::Half>(), 
@@ -441,13 +441,13 @@ std::vector<at::Tensor> LIF_hard_reset_fptt(torch::Tensor & x_seq, torch::Tensor
   const int neuron_num = size / seq_len;
   const int blocks = (neuron_num + threads - 1) / threads;
   CHECK_CUDA_OPERATION(cudaSetDevice(x_seq.get_device()));
-  if (x_seq.scalar_type() == c10::ScalarType::Float)
+  if (x_seq.scalar_type() == c10::ScalarType::Float)
   {
     LIF_hard_reset_fptt_cuda_kernel<<<blocks, threads>>>(
       x_seq.data_ptr<float>(), spike_seq.data_ptr<float>(), v_next.data_ptr<float>(),
       v_th, v_reset, neuron_num, size, reciprocal_tau);
   }
-  else if (x_seq.scalar_type() == c10::ScalarType::Half)
+  else if (x_seq.scalar_type() == c10::ScalarType::Half)
   {
     LIF_hard_reset_fptt_cuda_kernel_half<<<blocks, threads>>>(
       x_seq.data_ptr<at::Half>(), spike_seq.data_ptr<at::Half>(), v_next.data_ptr<at::Half>(),
@@ -510,8 +510,8 @@ __global__ void LIF_hard_reset_fptt_with_grad_cuda_kernel_half(
         spike_seq[mem_index] = __float2half(0.0f);
         v_next[index] = h;
       }
-      grad_s_to_h[mem_index] = grad_surrogate_function_pointer[grad_surrogate_function_index](alpha, __hsub(h, v_th));
-      grad_v_to_h[mem_index] = __hfma(__hmul(__hsub(v_reset, h), grad_s_to_h[mem_index]), __float2half(1.0f - (float) detach_reset), __hsub(1.0f, spike_seq[mem_index]));
+      grad_s_to_h[mem_index] = grad_surrogate_function_pointer_half[grad_surrogate_function_index](alpha, __hsub(h, v_th));
+      grad_v_to_h[mem_index] = __hfma(__hmul(__hsub(v_reset, h), grad_s_to_h[mem_index]), __float2half(1.0f - (float) detach_reset), __hsub(__float2half(1.0f), spike_seq[mem_index]));
     }
     
   }
@@ -537,7 +537,7 @@ std::vector<at::Tensor> LIF_hard_reset_fptt_with_grad(torch::Tensor & x_seq, tor
   const int neuron_num = size / seq_len;
   const int blocks = (neuron_num + threads - 1) / threads;
   CHECK_CUDA_OPERATION(cudaSetDevice(x_seq.get_device()));
-  if (x.scalar_type() == c10::ScalarType::Float)
+  if (x_seq.scalar_type() == c10::ScalarType::Float)
   {
     LIF_hard_reset_fptt_with_grad_cuda_kernel<<<blocks, threads>>>(
       x_seq.data_ptr<float>(), spike_seq.data_ptr<float>(), v_next.data_ptr<float>(), grad_s_to_h.data_ptr<float>(), grad_v_to_h.data_ptr<float>(),
@@ -545,7 +545,7 @@ std::vector<at::Tensor> LIF_hard_reset_fptt_with_grad(torch::Tensor & x_seq, tor
       alpha, detach_reset, grad_surrogate_function_index,
       reciprocal_tau);
   }
-  else if (x.scalar_type() == c10::ScalarType::Half)
+  else if (x_seq.scalar_type() == c10::ScalarType::Half)
   {
     LIF_hard_reset_fptt_with_grad_cuda_kernel_half<<<blocks, threads>>>(
       x_seq.data_ptr<at::Half>(), spike_seq.data_ptr<at::Half>(), v_next.data_ptr<at::Half>(), grad_s_to_h.data_ptr<at::Half>(), grad_v_to_h.data_ptr<at::Half>(),
@@ -593,7 +593,7 @@ __global__ void IF_hard_reset_fptt_cuda_kernel_half(
     for(int mem_offset = 0; mem_offset < size; mem_offset += neuron_num)
     {
       const int mem_index = index + mem_offset;
-      const half h = __hadd(v_next[index], x_seq[mem_index]);
+      const half h = __hadd((half) v_next[index], (half) x_seq[mem_index]);
       if (__hgeu(h, v_th))
       {
         spike_seq[mem_index] = __float2half(1.0f);
@@ -623,13 +623,13 @@ std::vector<at::Tensor> IF_hard_reset_fptt(torch::Tensor & x_seq, torch::Tensor 
     const int neuron_num = size / seq_len;
     const int blocks = (neuron_num + threads - 1) / threads;
     CHECK_CUDA_OPERATION(cudaSetDevice(x_seq.get_device()));
-    if (x_seq.scalar_type() == c10::ScalarType::Float)
+    if (x_seq.scalar_type() == c10::ScalarType::Float)
     {
       IF_hard_reset_fptt_cuda_kernel<<<blocks, threads>>>(
         x_seq.data_ptr<float>(), spike_seq.data_ptr<float>(), v_next.data_ptr<float>(),
         v_th, v_reset, neuron_num, size);
     }
-    else if (x_seq.scalar_type() == c10::ScalarType::Half)
+    else if (x_seq.scalar_type() == c10::ScalarType::Half)
     {
       IF_hard_reset_fptt_cuda_kernel_half<<<blocks, threads>>>(
         x_seq.data_ptr<at::Half>(), spike_seq.data_ptr<at::Half>(), v_next.data_ptr<at::Half>(),
@@ -679,8 +679,8 @@ __global__ void IF_hard_reset_fptt_with_grad_cuda_kernel_half(
     for(int mem_offset = 0; mem_offset < size; mem_offset += neuron_num)
     {
       const int mem_index = index + mem_offset;
-      const half h = __hadd(v_next[index], x_seq[mem_index]);
-      if (h >= v_th)
+      const half h = __hadd((half) v_next[index], (half) x_seq[mem_index]);
+      if (__hgeu(h, v_th))
       {
         spike_seq[mem_index] = __float2half(1.0f);
         v_next[index] = v_reset;
@@ -690,8 +690,8 @@ __global__ void IF_hard_reset_fptt_with_grad_cuda_kernel_half(
         spike_seq[mem_index] = __float2half(0.0f);
         v_next[index] = h;
       }
-      grad_s_to_h[mem_index] = grad_surrogate_function_pointer[grad_surrogate_function_index](alpha, __hsub(h, v_th));
-      grad_v_to_h[mem_index] = __hfma(__hmul(__hsub(v_reset, h), grad_s_to_h[mem_index]), __float2half(1.0f - (float) detach_reset), __hsub(1.0f, spike_seq[mem_index]));
+      grad_s_to_h[mem_index] = grad_surrogate_function_pointer_half[grad_surrogate_function_index](alpha, __hsub(h, v_th));
+      grad_v_to_h[mem_index] = __hfma(__hmul(__hsub(v_reset, h), grad_s_to_h[mem_index]), __float2half(1.0f - (float) detach_reset), __hsub(__float2half(1.0f), spike_seq[mem_index]));
     }
     
   }
@@ -716,14 +716,14 @@ std::vector<at::Tensor> IF_hard_reset_fptt_with_grad(torch::Tensor & x_seq, torc
   const int neuron_num = size / seq_len;
   const int blocks = (neuron_num + threads - 1) / threads;
   CHECK_CUDA_OPERATION(cudaSetDevice(x_seq.get_device()));
-  if (x_seq.scalar_type() == c10::ScalarType::Float)
+  if (x_seq.scalar_type() == c10::ScalarType::Float)
   {
     IF_hard_reset_fptt_with_grad_cuda_kernel<<<blocks, threads>>>(
       x_seq.data_ptr<float>(), spike_seq.data_ptr<float>(), v_next.data_ptr<float>(), grad_s_to_h.data_ptr<float>(), grad_v_to_h.data_ptr<float>(),
       v_th, v_reset, neuron_num, size, 
       alpha, detach_reset, grad_surrogate_function_index);
   }
-  else if (x_seq.scalar_type() == c10::ScalarType::Half)
+  else if (x_seq.scalar_type() == c10::ScalarType::Half)
   {
     IF_hard_reset_fptt_with_grad_cuda_kernel_half<<<blocks, threads>>>(
       x_seq.data_ptr<at::Half>(), spike_seq.data_ptr<at::Half>(), v_next.data_ptr<at::Half>(), grad_s_to_h.data_ptr<at::Half>(), grad_v_to_h.data_ptr<at::Half>(),

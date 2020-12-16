@@ -43,10 +43,12 @@ def cmp_voltage():
     device = 'cuda:1'
     lif_c.to(device)
     lif_p.to(device)
+    lif_c = lif_c.half()
+    lif_p = lif_p.half()
     T = 100
     neuron_num = 1024
     x = torch.rand([T, neuron_num], device=device) * 5
-    
+    x = x.half()
     with torch.no_grad():
         for t in range(T):
             lif_c(x[t])
@@ -68,6 +70,8 @@ def cmp_voltage():
     print(s_c)
     print(s_p)
     lif_ctt = wrapper.neuron.MultiStepLIFNode(tau=100.0)
+    lif_ctt.to(device)
+    lif_ctt = lif_ctt.half()
     x_ctt = x.clone()
     x_ctt.requires_grad_(True)
     s_ctt = lif_ctt(x_ctt)
