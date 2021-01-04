@@ -21,7 +21,7 @@ def cmp_speed():
     lif_c = wrapper.neuron.LIFNode(tau=100.0)
     lif_p = sj_neuron.LIFNode(tau=100.0, surrogate_function=sj_surrogate.ATan(alpha=2))
     print(lif_c, lif_p)
-    device = 'cuda:6'
+    device = 'cuda:0'
     lif_c.to(device)
     lif_p.to(device)
 
@@ -40,7 +40,7 @@ def cmp_voltage():
     lif_c = wrapper.neuron.LIFNode(tau=100.0)
     lif_p = sj_neuron.LIFNode(tau=100.0, surrogate_function=sj_surrogate.ATan(alpha=2))
     print(lif_c, lif_p)
-    device = 'cuda:1'
+    device = 'cuda:0'
     lif_c.to(device)
     lif_p.to(device)
     lif_c = lif_c.half()
@@ -91,7 +91,7 @@ def cmp_voltage2():
     if_c = wrapper.neuron.IFNode()
     if_p = sj_neuron.IFNode(surrogate_function=sj_surrogate.ATan(alpha=2))
     print(if_c, if_p)
-    device = 'cuda:1'
+    device = 'cuda:0'
     if_c.to(device)
     if_p.to(device)
     T = 100

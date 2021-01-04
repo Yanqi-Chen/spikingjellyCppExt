@@ -23,8 +23,8 @@ __global__ void LIF_backward_cuda_kernel(
 }
 
 __global__ void LIF_backward_cuda_kernel_half(
-  c10::Half* __restrict__ grad_x, c10::Half* __restrict__ grad_v,
-  const c10::Half* __restrict__ grad_spike, const c10::Half* __restrict__ grad_v_next, const c10::Half* __restrict__ grad_s_to_h, const c10::Half* __restrict__ grad_v_to_h,
+  at::Half* __restrict__ grad_x, at::Half* __restrict__ grad_v,
+  const at::Half* __restrict__ grad_spike, const at::Half* __restrict__ grad_v_next, const at::Half* __restrict__ grad_s_to_h, const at::Half* __restrict__ grad_v_to_h,
   const int size,
   const half reciprocal_tau, const half one_sub_reciprocal_tau)
 {
